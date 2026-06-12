@@ -1,0 +1,673 @@
+/* ── reset & base ─────────────────────────────── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --radius: 10px;
+}
+
+/* ── gradient text animation ─────────────────── */
+@keyframes gradientFlow {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* ── scroll-reveal animation ─────────────────── */
+@keyframes revealBlur {
+    0% {
+        filter: blur(4px);
+    }
+    100% {
+        filter: blur(0px);
+    }
+}
+@keyframes revealFade {
+    0% {
+        opacity: 0.1;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+@keyframes revealRotate {
+    0% {
+        transform: rotate(3deg);
+    }
+    100% {
+        transform: rotate(0deg);
+    }
+}
+
+.editor-active.revealing {
+    transform-origin: 0% 50%;
+    animation: revealRotate 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.editor-active.revealing .title-input {
+    animation:
+        revealFade 0.7s 0.05s cubic-bezier(0.16, 1, 0.3, 1) both,
+        revealBlur 0.7s 0.05s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.editor-active.revealing .content-input {
+    animation:
+        revealFade 0.7s 0.15s cubic-bezier(0.16, 1, 0.3, 1) both,
+        revealBlur 0.7s 0.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.editor-active.revealing .editor-actions {
+    animation:
+        revealFade 0.7s 0.25s cubic-bezier(0.16, 1, 0.3, 1) both,
+        revealBlur 0.7s 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+html,
+body {
+    height: 100%;
+}
+body {
+    font-family:
+        "Segoe UI",
+        system-ui,
+        -apple-system,
+        sans-serif;
+    overflow: hidden;
+}
+
+/* ── theme tokens (defaults = cyan) ──────────── */
+body {
+    --t-50: #ecfeff;
+    --t-100: #cffafe;
+    --t-200: #a5f3fc;
+    --t-300: #67e8f9;
+    --t-400: #22d3ee;
+    --t-500: #06b6d4;
+    --t-600: #0891b2;
+    --t-700: #0e7490;
+    --t-800: #155e75;
+    --t-900: #164e63;
+    --gradient-stops: #22d3ee, #a5f3fc, #06b6d4, #22d3ee;
+}
+
+[data-theme="emerald"] {
+    --t-50: #ecfdf5;
+    --t-100: #d1fae5;
+    --t-200: #a7f3d0;
+    --t-300: #6ee7b7;
+    --t-400: #34d399;
+    --t-500: #10b981;
+    --t-600: #059669;
+    --t-700: #047857;
+    --t-800: #065f46;
+    --t-900: #064e3b;
+    --gradient-stops: #34d399, #a7f3d0, #10b981, #34d399;
+}
+
+[data-theme="violet"] {
+    --t-50: #f5f3ff;
+    --t-100: #ede9fe;
+    --t-200: #ddd6fe;
+    --t-300: #c4b5fd;
+    --t-400: #a78bfa;
+    --t-500: #8b5cf6;
+    --t-600: #7c3aed;
+    --t-700: #6d28d9;
+    --t-800: #5b21b6;
+    --t-900: #4c1d95;
+    --gradient-stops: #a78bfa, #ddd6fe, #8b5cf6, #a78bfa;
+}
+
+[data-theme="rose"] {
+    --t-50: #fff1f2;
+    --t-100: #ffe4e6;
+    --t-200: #fecdd3;
+    --t-300: #fda4af;
+    --t-400: #fb7185;
+    --t-500: #f43f5e;
+    --t-600: #e11d48;
+    --t-700: #be123c;
+    --t-800: #9f1239;
+    --t-900: #881337;
+    --gradient-stops: #fb7185, #fecdd3, #f43f5e, #fb7185;
+}
+
+[data-theme="amber"] {
+    --t-50: #fffbeb;
+    --t-100: #fef3c7;
+    --t-200: #fde68a;
+    --t-300: #fcd34d;
+    --t-400: #fbbf24;
+    --t-500: #f59e0b;
+    --t-600: #d97706;
+    --t-700: #b45309;
+    --t-800: #92400e;
+    --t-900: #78350f;
+    --gradient-stops: #fbbf24, #fde68a, #f59e0b, #fbbf24;
+}
+
+body {
+    background: var(--t-900);
+    color: #000;
+}
+
+/* ── background layer ────────────────────────── */
+.bg-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: var(--t-900) center/cover no-repeat;
+    filter: blur(0px);
+    opacity: 1;
+    transition:
+        filter 0.2s,
+        opacity 0.2s;
+}
+
+/* ── side-rays layer ────────────────────────── */
+.rays-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+    mix-blend-mode: screen;
+}
+
+/* ── splash cursor layer ────────────────────── */
+.cursor-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+/* ── click spark layer ──────────────────────── */
+.spark-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+/* ── app shell ────────────────────────────────── */
+.app-shell {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    height: 100vh;
+}
+
+/* ── border glow effect ───────────────────────── */
+@keyframes rotateGlow {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.border-glow {
+    --edge-proximity: 0;
+    --cursor-angle: 0deg;
+
+    position: relative;
+    isolation: isolate;
+    border: 1px solid transparent;
+    transition: border-color 0.3s ease;
+}
+
+.border-glow::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    z-index: -1;
+    pointer-events: none;
+    background: conic-gradient(
+        from var(--cursor-angle) at center,
+        transparent 0deg,
+        var(--t-400) 30deg,
+        var(--t-500) 60deg,
+        transparent 90deg,
+        transparent 270deg,
+        var(--t-400) 330deg,
+        var(--t-500) 360deg
+    );
+    opacity: calc(var(--edge-proximity) / 100 * 0.9);
+    transition: opacity 0.2s ease-out;
+    padding: 2px;
+    mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+}
+
+.border-glow::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    z-index: -2;
+    pointer-events: none;
+    background: radial-gradient(
+        ellipse at center,
+        color-mix(in srgb, var(--t-400) 40%, transparent),
+        transparent 70%
+    );
+    opacity: calc(var(--edge-proximity) / 100 * 0.6);
+    transition: opacity 0.25s ease-out;
+    animation: rotateGlow 6s linear infinite;
+    animation-play-state: paused;
+    padding: 2px;
+    mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+}
+
+/* animation runs only when edge proximity > 0 */
+.border-glow[style*="--edge-proximity"]::after {
+    animation-play-state: running;
+}
+
+/* ── sidebar ──────────────────────────────────── */
+.sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(12px);
+    border-right: 1px solid color-mix(in srgb, var(--t-400) 20%, transparent);
+    display: flex;
+    flex-direction: column;
+    padding: 1.25rem;
+    gap: 0.75rem;
+}
+
+.sidebar-header {
+    padding: 0.6rem 0.75rem;
+    margin: -0.5rem -0.5rem 0 -0.5rem;
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.35);
+    backdrop-filter: blur(16px) saturate(1.8) brightness(1.15)
+        url(#glass-filter);
+    -webkit-backdrop-filter: blur(16px) saturate(1.8) brightness(1.15);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    box-shadow:
+        0 4px 16px rgba(17, 17, 26, 0.06),
+        0 2px 8px rgba(17, 17, 26, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.2),
+        inset 0 0 8px rgba(255, 255, 255, 0.15);
+}
+
+/* fallback: no SVG filter support */
+@supports not (backdrop-filter: url(#glass-filter)) {
+    .sidebar-header {
+        backdrop-filter: blur(16px) saturate(1.8) brightness(1.15);
+        -webkit-backdrop-filter: blur(16px) saturate(1.8) brightness(1.15);
+    }
+}
+
+.sidebar-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    background-image: linear-gradient(to right, var(--gradient-stops));
+    background-size: 300% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: gradientFlow 7s ease infinite;
+}
+
+.btn-new {
+    width: 100%;
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--t-400);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--t-400) 12%, transparent);
+    color: #000;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        color 0.15s;
+}
+.btn-new:hover {
+    background: color-mix(in srgb, var(--t-400) 25%, transparent);
+    color: #000;
+}
+
+.note-list {
+    flex: 1;
+    overflow-y: auto;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.note-list li {
+    padding: 0.55rem 0.75rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    color: #000;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.12s;
+}
+.note-list li:hover {
+    background: color-mix(in srgb, var(--t-400) 12%, transparent);
+}
+.note-list li.active {
+    background: color-mix(in srgb, var(--t-400) 22%, transparent);
+    color: #000;
+}
+
+.sidebar-footer {
+    margin-top: auto;
+}
+
+.btn-settings {
+    width: 100%;
+    padding: 0.45rem 1rem;
+    border: 1px solid color-mix(in srgb, var(--t-400) 30%, transparent);
+    border-radius: var(--radius);
+    background: transparent;
+    color: #000;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.btn-settings:hover {
+    background: color-mix(in srgb, var(--t-400) 10%, transparent);
+}
+
+/* ── editor ───────────────────────────────────── */
+.editor {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.75);
+}
+
+.editor-placeholder p {
+    color: #000;
+    font-size: 1.1rem;
+    opacity: 0.4;
+}
+
+.editor-active {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem 2.5rem;
+    gap: 1rem;
+}
+
+.title-input {
+    font-size: 1.6rem;
+    font-weight: 700;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid color-mix(in srgb, var(--t-400) 20%, transparent);
+    color: #000;
+    padding: 0.25rem 0;
+    outline: none;
+    transition:
+        border-color 0.2s,
+        color 0.2s;
+}
+.title-input:focus,
+.title-input.has-content {
+    border-color: var(--t-400);
+}
+.title-input::placeholder {
+    color: #888;
+}
+
+.content-input {
+    flex: 1;
+    font-size: 1rem;
+    line-height: 1.7;
+    background: transparent;
+    border: none;
+    color: #000;
+    resize: none;
+    outline: none;
+}
+.content-input::placeholder {
+    color: #888;
+}
+
+.content-preview {
+    flex: 1;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: #000;
+    overflow-y: auto;
+    padding: 0.25rem 0;
+}
+.content-preview h1,
+.content-preview h2,
+.content-preview h3 {
+    margin: 0.8rem 0 0.4rem;
+}
+.content-preview p {
+    margin: 0.4rem 0;
+}
+.content-preview code {
+    background: rgba(0, 0, 0, 0.06);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+.content-preview pre {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 0.75rem;
+    border-radius: var(--radius);
+    overflow-x: auto;
+    margin: 0.5rem 0;
+}
+.content-preview pre code {
+    background: none;
+    padding: 0;
+}
+.content-preview blockquote {
+    border-left: 3px solid var(--t-400);
+    padding-left: 0.75rem;
+    margin: 0.5rem 0;
+    color: #555;
+}
+.content-preview ul,
+.content-preview ol {
+    padding-left: 1.5rem;
+    margin: 0.4rem 0;
+}
+.content-preview img {
+    max-width: 100%;
+    border-radius: var(--radius);
+}
+
+.btn-preview {
+    padding: 0.45rem 1rem;
+    border: 1px solid var(--t-400);
+    border-radius: var(--radius);
+    background: transparent;
+    color: #000;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        color 0.15s;
+}
+.btn-preview:hover {
+    background: color-mix(in srgb, var(--t-400) 15%, transparent);
+}
+.btn-preview.active {
+    background: color-mix(in srgb, var(--t-400) 25%, transparent);
+}
+
+.editor-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.5rem;
+    border-top: 1px solid color-mix(in srgb, var(--t-400) 10%, transparent);
+}
+
+.editor-meta {
+    font-size: 0.8rem;
+    color: #555;
+}
+
+.editor-actions-right {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+}
+
+.btn-save,
+.btn-delete {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 1rem;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    transition:
+        background 0.15s,
+        border-color 0.15s,
+        box-shadow 0.15s,
+        transform 0.1s;
+}
+.btn-save:active,
+.btn-delete:active {
+    transform: scale(0.96);
+}
+.btn-save:focus-visible,
+.btn-delete:focus-visible {
+    box-shadow: 0 0 0 3px var(--t-300);
+}
+
+/* save */
+.btn-save {
+    border: 1px solid var(--t-400);
+    background: color-mix(in srgb, var(--t-400) 22%, transparent);
+    color: #000;
+}
+.btn-save:hover {
+    background: color-mix(in srgb, var(--t-400) 38%, transparent);
+    border-color: var(--t-500);
+}
+.btn-save::before {
+    content: "💾";
+    font-size: 0.85rem;
+}
+
+/* delete */
+.btn-delete {
+    border: 1px solid rgba(220, 38, 38, 0.45);
+    background: transparent;
+    color: #b91c1c;
+}
+.btn-delete:hover {
+    background: rgba(220, 38, 38, 0.1);
+    border-color: rgba(220, 38, 38, 0.65);
+}
+.btn-delete::before {
+    content: "🗑";
+    font-size: 0.85rem;
+}
+
+/* ── settings panel ───────────────────────────── */
+.settings-panel {
+    width: 280px;
+    min-width: 280px;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(12px);
+    border-left: 1px solid color-mix(in srgb, var(--t-400) 20%, transparent);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+}
+
+.settings-panel h2 {
+    font-size: 1.15rem;
+    color: #000;
+    font-weight: 600;
+}
+
+.slider-label {
+    font-size: 0.85rem;
+    color: #000;
+    display: flex;
+    justify-content: space-between;
+}
+
+input[type="range"] {
+    width: 100%;
+    accent-color: var(--t-400);
+}
+
+input[type="file"] {
+    width: 100%;
+    color: #000;
+    font-size: 0.8rem;
+}
+input[type="file"]::file-selector-button {
+    background: color-mix(in srgb, var(--t-400) 15%, transparent);
+    border: 1px solid var(--t-400);
+    border-radius: 6px;
+    color: #000;
+    padding: 0.3rem 0.75rem;
+    cursor: pointer;
+    margin-right: 0.5rem;
+}
+
+.theme-select {
+    width: 100%;
+    padding: 0.45rem 0.75rem;
+    border: 1px solid var(--t-400);
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.7);
+    color: #000;
+    font-size: 0.85rem;
+    cursor: pointer;
+    outline: none;
+}
+.theme-select option {
+    background: #fff;
+    color: #000;
+}
