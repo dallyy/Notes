@@ -1,5 +1,5 @@
 #include <httplib.h>
-#include <nlohmann/json.hpp>
+#include "json.hpp"
 
 #include <fstream>
 #include <filesystem>
@@ -191,7 +191,7 @@ int main(int argc, char* argv[]) {
 
     // ── upload background ─────────────────────────────────
     svr.Post("/api/upload-background", [](const httplib::Request& req, httplib::Response& res) {
-        auto file = req.get_file_value("file");
+        auto file = req.form.get_file("file");
         if (file.filename.empty()) {
             res.status = 400;
             res.set_content(R"({"detail":"No file provided"})", "application/json");
