@@ -1101,6 +1101,152 @@ input[type="file"]::file-selector-button {
 /* ── 18. Sidebar Footer ──────────────────────────────────────── */
 .sidebar-footer {
   margin-top: auto;
+  display: flex;
+  gap: 0.5rem;
+}
+.sidebar-footer .btn-settings {
+  flex: 1;
+}
+
+/* ── 18a. Wiki Links (preview) ───────────────────────────────── */
+.content-preview a.note-link {
+  color: var(--t-600);
+  text-decoration: none;
+  border-bottom: 1px dashed color-mix(in srgb, var(--t-600) 50%, transparent);
+  cursor: pointer;
+  padding: 0 1px;
+  border-radius: 3px;
+  transition: background 0.12s;
+}
+.content-preview a.note-link:hover {
+  background: color-mix(in srgb, var(--t-400) 16%, transparent);
+}
+.content-preview a.note-link--unresolved {
+  color: var(--text-muted);
+  border-bottom-color: color-mix(in srgb, var(--text-muted) 40%, transparent);
+}
+
+/* [[ link autocomplete dropdown */
+.link-suggest {
+  position: fixed;
+  z-index: 400;
+  min-width: 180px;
+  max-width: 320px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--surface);
+  backdrop-filter: blur(12px);
+  border: 1px solid color-mix(in srgb, var(--t-400) 30%, transparent);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+  padding: 4px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+.link-suggest[hidden] {
+  display: none;
+}
+.link-suggest-item {
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.link-suggest-item:hover,
+.link-suggest-item.active {
+  background: color-mix(in srgb, var(--t-400) 16%, transparent);
+}
+
+/* ── 18b. Knowledge Graph ────────────────────────────────────── */
+.graph-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(10, 14, 22, 0.6);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  animation: overlayIn 0.2s ease forwards;
+}
+.graph-overlay[hidden] {
+  display: none;
+}
+
+.graph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-xl);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  flex-shrink: 0;
+}
+.graph-toolbar h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.graph-stats {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+.graph-toggle {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  opacity: 0.85;
+  cursor: pointer;
+  user-select: none;
+}
+.graph-toggle input {
+  accent-color: var(--t-400);
+}
+.graph-close {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 1.15rem;
+  line-height: 1;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.graph-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.graph-canvas {
+  flex: 1;
+  display: block;
+  width: 100%;
+  min-height: 0;
+  cursor: grab;
+}
+.graph-canvas:active {
+  cursor: grabbing;
+}
+
+.graph-hint {
+  margin: 0;
+  padding: 0.5rem var(--space-xl);
+  font-size: 0.78rem;
+  opacity: 0.6;
+  color: #fff;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+.graph-hint code {
+  background: rgba(255, 255, 255, 0.14);
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 0.75rem;
 }
 
 /* ── 19. Responsive ──────────────────────────────────────────── */
