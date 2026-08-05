@@ -1,202 +1,169 @@
 <!doctype html>
 <html lang="zh-CN">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>随笔笔记</title>
-        <link rel="stylesheet" href="/static/style.css" />
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
-    </head>
-    <body data-theme="cyan">
-        <!-- SVG filters for glass surface -->
-        <svg style="position: absolute; width: 0; height: 0" aria-hidden="true">
-            <defs>
-                <filter id="glass-filter" color-interpolation-filters="sRGB">
-                    <feGaussianBlur
-                        in="SourceGraphic"
-                        stdDeviation="0.7"
-                        result="blur"
-                    />
-                    <feDisplacementMap
-                        in="blur"
-                        in2="blur"
-                        scale="8"
-                        xChannelSelector="R"
-                        yChannelSelector="G"
-                        result="dispR"
-                    />
-                    <feDisplacementMap
-                        in="blur"
-                        in2="blur"
-                        scale="12"
-                        xChannelSelector="G"
-                        yChannelSelector="B"
-                        result="dispG"
-                    />
-                    <feDisplacementMap
-                        in="blur"
-                        in2="blur"
-                        scale="10"
-                        xChannelSelector="B"
-                        yChannelSelector="R"
-                        result="dispB"
-                    />
-                    <feColorMatrix
-                        in="dispR"
-                        type="matrix"
-                        values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
-                        result="red"
-                    />
-                    <feColorMatrix
-                        in="dispG"
-                        type="matrix"
-                        values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0"
-                        result="green"
-                    />
-                    <feColorMatrix
-                        in="dispB"
-                        type="matrix"
-                        values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0"
-                        result="blue"
-                    />
-                    <feBlend in="red" in2="green" mode="screen" result="rg" />
-                    <feBlend in="rg" in2="blue" mode="screen" result="output" />
-                </filter>
-            </defs>
-        </svg>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>随笔笔记</title>
+    <link rel="stylesheet" href="/static/style.css?v=2" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+</head>
+<body data-theme="cyan">
 
-        <!-- background layer -->
-        <div class="bg-layer" id="bgLayer"></div>
+    <!-- SVG glass filter (Safari chromatic aberration) -->
+    <svg aria-hidden="true" style="position:absolute;width:0;height:0">
+        <defs>
+            <filter id="glass-filter" color-interpolation-filters="sRGB">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="0.7" result="blur"/>
+                <feDisplacementMap in="blur" in2="blur" scale="8"  xChannelSelector="R" yChannelSelector="G" result="dispR"/>
+                <feDisplacementMap in="blur" in2="blur" scale="12" xChannelSelector="G" yChannelSelector="B" result="dispG"/>
+                <feDisplacementMap in="blur" in2="blur" scale="10" xChannelSelector="B" yChannelSelector="R" result="dispB"/>
+                <feColorMatrix in="dispR" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="red"/>
+                <feColorMatrix in="dispG" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="green"/>
+                <feColorMatrix in="dispB" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="blue"/>
+                <feBlend in="red" in2="green" mode="screen" result="rg"/>
+                <feBlend in="rg"  in2="blue"  mode="screen"/>
+            </filter>
+        </defs>
+    </svg>
 
-        <!-- side-rays effect -->
-        <div class="rays-layer" id="raysLayer"></div>
+    <!-- effect layers -->
+    <div class="bg-layer" id="bgLayer"></div>
+    <div class="rays-layer" id="raysLayer"></div>
+    <div class="cursor-layer" id="cursorLayer"></div>
+    <div class="spark-layer" id="sparkLayer"></div>
 
-        <!-- splash cursor -->
-        <div class="cursor-layer" id="cursorLayer"></div>
+    <div class="app-shell">
+        <!-- mobile sidebar backdrop -->
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-        <!-- click spark -->
-        <div class="spark-layer" id="sparkLayer"></div>
-
-        <div class="app-shell">
-            <!-- sidebar -->
-            <aside class="sidebar" id="sidebar">
-                <div class="sidebar-header border-glow">
-                    <h1>笔记</h1>
-                </div>
-                <button class="btn-new border-glow" id="btnNewNote">
-                    + 新建笔记
-                </button>
-                <ul class="note-list" id="noteList"></ul>
-                <div class="sidebar-footer">
-                    <button
-                        class="btn-settings border-glow"
-                        id="btnToggleSettings"
-                    >
-                        设置
-                    </button>
-                </div>
-            </aside>
-
-            <!-- resizer -->
-            <div class="sidebar-resizer" id="sidebarResizer"></div>
-
-            <!-- main -->
-            <main class="editor" id="editorPanel">
-                <div class="editor-placeholder">
-                    <p>选择一个笔记或创建新笔记</p>
-                </div>
-                <div
-                    class="editor-active"
-                    id="editorActive"
-                    style="display: none"
-                >
-                    <input
-                        class="title-input"
-                        id="noteTitle"
-                        placeholder="标题"
-                    />
-                    <textarea
-                        class="content-input"
-                        id="noteContent"
-                        placeholder="写点什么..."
-                    ></textarea>
-                    <div
-                        class="content-preview"
-                        id="notePreview"
-                        style="display: none"
-                    ></div>
-                    <div class="editor-actions">
-                        <span class="editor-meta" id="editorMeta"></span>
-                        <div class="editor-actions-right">
-                            <button class="btn-save" id="btnSave">保存</button>
-                            <button class="btn-preview" id="btnPreview">
-                                预览
-                            </button>
-                            <button class="btn-delete" id="btnDelete">
-                                删除
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </main>
-
-            <!-- settings panel -->
-            <div
-                class="settings-panel"
-                id="settingsPanel"
-                style="display: none"
-            >
-                <h2>外观</h2>
-
-                <label class="slider-label">
-                    背景模糊： <strong id="blurVal">0px</strong>
-                </label>
-                <input
-                    type="range"
-                    id="blurSlider"
-                    min="0"
-                    max="20"
-                    value="0"
-                />
-
-                <label class="slider-label">
-                    透明度： <strong id="transVal">1.0</strong>
-                </label>
-                <input
-                    type="range"
-                    id="transSlider"
-                    min="0.1"
-                    max="1.0"
-                    step="0.05"
-                    value="1.0"
-                />
-
-                <label class="slider-label">颜色主题</label>
-                <select class="theme-select" id="themeSelect">
-                    <option value="cyan">Cyan</option>
-                    <option value="emerald">Emerald</option>
-                    <option value="violet">Violet</option>
-                    <option value="rose">Rose</option>
-                    <option value="amber">Amber</option>
-                </select>
-
-                <label class="slider-label">背景图片</label>
-                <input type="file" id="bgUpload" accept="image/*" />
-                <button
-                    class="btn-delete"
-                    id="btnRemoveBg"
-                    style="margin-top: 0.5rem"
-                >
-                    移除背景
+        <!-- sidebar -->
+        <aside class="sidebar" id="sidebar" aria-label="笔记列表">
+            <div class="sidebar-header border-glow">
+                <h1>笔记</h1>
+                <button class="sidebar-toggle" id="sidebarToggle" aria-label="切换侧边栏" title="侧边栏">
+                    &#9776;
                 </button>
             </div>
-        </div>
 
-        <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-        <script src="/static/side-rays.js"></script>
-        <script src="/static/splash-cursor.js"></script>
-        <script src="/static/click-spark.js"></script>
-        <script src="/static/app.js"></script>
-    </body>
+            <!-- search -->
+            <div class="search-wrap">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input class="search-input" id="searchNotes" type="text" placeholder="搜索笔记..." aria-label="搜索笔记" />
+            </div>
+
+            <div class="sidebar-actions">
+                <button class="btn-new border-glow" id="btnNewNote">
+                    + 新建笔记
+                    <kbd>Ctrl+N</kbd>
+                </button>
+                <button class="btn-new btn-new-folder border-glow" id="btnNewFolder" title="新建文件夹" aria-label="新建文件夹">
+                    + 新建文件夹
+                </button>
+            </div>
+
+            <ul class="note-list" id="noteList" role="listbox" aria-label="笔记列表"></ul>
+
+            <div class="sidebar-footer">
+                <button class="btn-settings border-glow" id="btnToggleSettings">设置</button>
+            </div>
+        </aside>
+
+        <!-- resizer -->
+        <div class="sidebar-resizer" id="sidebarResizer"></div>
+
+        <!-- main editor -->
+        <main class="editor" id="editorPanel" aria-label="编辑器">
+            <div class="editor-placeholder" id="editorPlaceholder">
+                <p>选择一个笔记或按 <kbd>Ctrl+N</kbd> 创建新笔记</p>
+            </div>
+            <div class="editor-active" id="editorActive" hidden>
+                <input class="title-input" id="noteTitle" placeholder="标题" aria-label="笔记标题" />
+                <textarea class="content-input" id="noteContent" placeholder="写点什么... 支持 Markdown 和 $\\LaTeX$ 数学公式" aria-label="笔记内容"></textarea>
+                <div class="content-preview" id="notePreview"></div>
+                <div class="editor-actions">
+                    <span class="editor-meta" id="editorMeta"></span>
+                    <div class="editor-actions-right">
+                        <button class="btn-save" id="btnSave">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            保存
+                            <kbd>Ctrl+S</kbd>
+                        </button>
+                        <button class="btn-preview" id="btnPreview">预览</button>
+                        <button class="btn-delete" id="btnDelete">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            删除
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- settings overlay backdrop -->
+    <div class="settings-overlay" id="settingsOverlay"></div>
+
+    <!-- settings drawer -->
+    <div class="settings-panel" id="settingsPanel" aria-label="设置">
+        <button class="settings-close" id="settingsClose" aria-label="关闭设置">&times;</button>
+        <h2>外观</h2>
+
+        <label class="slider-label">
+            背景模糊：<strong id="blurVal">0px</strong>
+        </label>
+        <input type="range" id="blurSlider" min="0" max="20" value="0" />
+
+        <label class="slider-label">
+            透明度：<strong id="transVal">1.0</strong>
+        </label>
+        <input type="range" id="transSlider" min="0.1" max="1.0" step="0.05" value="1.0" />
+
+        <label class="slider-label">颜色主题</label>
+        <select class="theme-select" id="themeSelect">
+            <option value="cyan">Cyan</option>
+            <option value="emerald">Emerald</option>
+            <option value="violet">Violet</option>
+            <option value="rose">Rose</option>
+            <option value="amber">Amber</option>
+        </select>
+
+        <label class="slider-label">背景图片</label>
+        <input type="file" id="bgUpload" accept="image/*" />
+        <button class="btn-delete btn-remove-bg" id="btnRemoveBg">移除背景</button>
+    </div>
+
+    <!-- toast container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- confirm dialog -->
+    <div class="confirm-overlay" id="confirmOverlay" hidden>
+        <div class="confirm-dialog" role="alertdialog" aria-labelledby="confirmTitle">
+            <p id="confirmTitle">确定要删除这条笔记吗？此操作无法撤销。</p>
+            <div class="confirm-actions">
+                <button class="btn-cancel" id="confirmCancel">取消</button>
+                <button class="btn-danger" id="confirmOk">删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- folder dialog -->
+    <div class="folder-dialog-overlay" id="folderDialogOverlay" hidden>
+        <div class="folder-dialog" role="dialog" aria-labelledby="folderDialogTitle">
+            <h3 id="folderDialogTitle">新建文件夹</h3>
+            <input class="folder-dialog-input" id="folderDialogInput" type="text" placeholder="文件夹名称" maxlength="40" aria-label="文件夹名称" />
+            <div class="confirm-actions">
+                <button class="btn-cancel" id="folderDialogCancel">取消</button>
+                <button class="btn-folder-ok" id="folderDialogOk">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="/static/side-rays.js"></script>
+    <script src="/static/splash-cursor.js"></script>
+    <script src="/static/click-spark.js"></script>
+    <script src="/static/app.js?v=2"></script>
+</body>
 </html>
