@@ -13,7 +13,13 @@
     blur: 0,
     transparency: 1.0,
     theme: "cyan",
+    brightness: 1.0,
+    mode: "light",
   };
+
+  // brightness + light/dark mode live in localStorage (no server compiler here)
+  const BRIGHTNESS_KEY = "notes-bg-brightness";
+  const MODE_KEY = "notes-mode";
   let isPreview = false;
   let saveTimer = null;
   let saving = false;
@@ -59,6 +65,9 @@
   const transVal       = document.getElementById("transVal");
   const themeSelect    = document.getElementById("themeSelect");
   const bgUpload       = document.getElementById("bgUpload");
+  const brightnessSlider = document.getElementById("brightnessSlider");
+  const brightnessVal  = document.getElementById("brightnessVal");
+  const modeSelect     = document.getElementById("modeSelect");
   const searchInput    = document.getElementById("searchNotes");
   const confirmOverlay = document.getElementById("confirmOverlay");
   const sidebar        = document.getElementById("sidebar");
@@ -318,16 +327,25 @@
     });
 
     if (typeof katex !== "undefined") {
-      // display math $$...$$
-      text = text.replace(/\$\$([\s\S]*?)\$\$/g, function (_, math) {
-        blocks.push({ math: math.trim(), display: true });
+      var stashMath = function (math, display) {
+        blocks.push({ math: math.trim(), display: display });
         return "\x00MATH" + (blocks.length - 1) + "\x00";
+      };
+
+      // display math $$...$$ and \[...\]
+      text = text.replace(/\$\$([\s\S]*?)\$\$/g, function (_, math) {
+        return stashMath(math, true);
+      });
+      text = text.replace(/\\\[([\s\S]*?)\\\]/g, function (_, math) {
+        return stashMath(math, true);
       });
 
-      // inline math $...$
+      // inline math $...$ and \(...\)
       text = text.replace(/\$([^\$\n]+?)\$/g, function (_, math) {
-        blocks.push({ math: math.trim(), display: false });
-        return "\x00MATH" + (blocks.length - 1) + "\x00";
+        return stashMath(math, false);
+      });
+      text = text.replace(/\\\(([^\n]*?)\\\)/g, function (_, math) {
+        return stashMath(math, false);
       });
     }
 
@@ -370,7 +388,10 @@
 
   function makeNoteItem(n, inFolder) {
     var li = document.createElement("li");
-    li.textContent = n.title || "未命名";
+    var span = document.createElement("span");
+    span.className = "note-title";
+    span.textContent = n.title || "未命名";
+    li.appendChild(span);
     li.dataset.id = n.id;
     li.classList.add("border-glow");
     if (inFolder) li.classList.add("note-in-folder");
@@ -822,18 +843,29 @@
     var s = await apiSafe("/api/settings", {}, "加载设置失败");
     if (!s) return;
     settings = s;
+    loadLocalUiSettings();
     applySettings();
     blurSlider.value = settings.blur;
     transSlider.value = settings.transparency;
     blurVal.textContent = settings.blur + "px";
     transVal.textContent = settings.transparency.toFixed(2);
+    brightnessSlider.value = settings.brightness;
+    brightnessVal.textContent = Number(settings.brightness).toFixed(2);
+    modeSelect.value = settings.mode;
     initSideRays(settings.theme || "cyan");
     initSplashCursor(settings.theme || "cyan");
     initClickSpark();
   }
 
+  // brightness + mode are stored in localStorage, not the server; re-inject
+  // them after any server response replaces the settings object
+  function loadLocalUiSettings() {
+    settings.brightness = parseFloat(localStorage.getItem(BRIGHTNESS_KEY)) || 1;
+    settings.mode = localStorage.getItem(MODE_KEY) || "light";
+  }
+
   function applySettings() {
-    bgLayer.style.filter = "blur(" + settings.blur + "px)";
+    bgLayer.style.filter = "blur(" + settings.blur + "px) brightness(" + settings.brightness + ")";
     bgLayer.style.opacity = settings.transparency;
     if (settings.background_image) {
       bgLayer.style.backgroundImage =
@@ -842,7 +874,9 @@
       bgLayer.style.backgroundImage = "";
     }
     document.body.dataset.theme = settings.theme || "cyan";
+    document.body.dataset.mode = settings.mode || "light";
     themeSelect.value = settings.theme || "cyan";
+    modeSelect.value = settings.mode || "light";
     updateSideRaysTheme(settings.theme || "cyan");
     updateSplashCursorTheme(settings.theme || "cyan");
     updateClickSparkTheme();
@@ -862,6 +896,7 @@
     );
     if (!s) return;
     settings = s;
+    loadLocalUiSettings();
     applySettings();
     blurVal.textContent = settings.blur + "px";
     transVal.textContent = settings.transparency.toFixed(2);
@@ -880,10 +915,17 @@
     );
     if (!s) return;
     settings = s;
+    loadLocalUiSettings();
     document.body.dataset.theme = theme;
     updateSideRaysTheme(theme);
     updateSplashCursorTheme(theme);
     updateClickSparkTheme();
+  }
+
+  function saveMode() {
+    settings.mode = modeSelect.value === "dark" ? "dark" : "light";
+    localStorage.setItem(MODE_KEY, settings.mode);
+    applySettings();
   }
 
   async function uploadBackground(file) {
@@ -962,7 +1004,7 @@
   var graphCtx = graphCanvasEl.getContext("2d");
   var graphRaf = null;
   var graphData = null;      // { nodes:[...], links:[...] }
-  var graphForce = { rep: 2600, link: 0.012, linkLen: 90, center: 0.01, damp: 0.82 };
+  var graphForce = { rep: 8000, link: 0.005, linkLen: 300, center: 0.0025, damp: 0.76 };
   var graphCam = { az: 0.5, el: 0.25, zoom: 1 };
   var graphPointer = null;
   var graphHover = null;
@@ -1042,14 +1084,17 @@
       c.fx -= c.x * graphForce.center;
       c.fy -= c.y * graphForce.center;
       c.fz -= c.z * graphForce.center;
+      // mild Z-flatten: keep nodes roughly coplanar so perspective depth
+      // doesn't make distinct nodes visually overlap on screen
+      c.fz -= c.z * 0.02;
     }
     // integrate
     for (i = 0; i < nodes.length; i++) {
       var n = nodes[i];
       if (jitter) {
-        n.vx += (Math.random() - 0.5) * 0.03;
-        n.vy += (Math.random() - 0.5) * 0.03;
-        n.vz += (Math.random() - 0.5) * 0.03;
+        n.vx += (Math.random() - 0.5) * 0.015;
+        n.vy += (Math.random() - 0.5) * 0.015;
+        n.vz += (Math.random() - 0.5) * 0.015;
       }
       n.vx = (n.vx + n.fx) * graphForce.damp;
       n.vy = (n.vy + n.fy) * graphForce.damp;
@@ -1062,7 +1107,7 @@
   function projectAll() {
     var W = graphCanvasEl.clientWidth, H = graphCanvasEl.clientHeight;
     var k = 0.5 * Math.min(W, H) || 1;
-    var camDist = k * 1.8;
+    var camDist = k * 1.7;
     var cosA = Math.cos(graphCam.az), sinA = Math.sin(graphCam.az);
     var cosE = Math.cos(graphCam.el), sinE = Math.sin(graphCam.el);
     var cx = W / 2, cy = H / 2;
@@ -1117,7 +1162,7 @@
     var W = graphCanvasEl.clientWidth, H = graphCanvasEl.clientHeight;
     if (!W || !H) return;
     ctx.clearRect(0, 0, W, H);
-    var camDist = (0.5 * Math.min(W, H)) * 1.8;
+    var camDist = (0.5 * Math.min(W, H)) * 1.7;
     var proj = projectAll();
     var projById = {};
     for (var i = 0; i < proj.length; i++) projById[proj[i].n.id] = proj[i];
@@ -1170,12 +1215,12 @@
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      // label — always shown, sized/faded by depth
-      var fs = Math.max(9, Math.min(13, 12 * p.s));
-      ctx.font = "600 " + fs + "px system-ui, 'Segoe UI', sans-serif";
-      ctx.shadowColor = "rgba(0,0,0,0.85)";
-      ctx.shadowBlur = 3;
-      ctx.fillStyle = "rgba(255,255,255," + (0.82 * alpha * dim) + ")";
+      // label — always shown, highlighted (bright bold white + glow)
+      var fs = Math.max(10, Math.min(14, 13 * p.s));
+      ctx.font = "700 " + fs + "px system-ui, 'Segoe UI', sans-serif";
+      ctx.shadowColor = "rgba(0,0,0,0.9)";
+      ctx.shadowBlur = 4;
+      ctx.fillStyle = "rgba(255,255,255," + Math.max(0.78, 0.95 * alpha * dim) + ")";
       ctx.fillText(n.title, p.x + r + 5, p.y + fs * 0.35);
       ctx.shadowBlur = 0;
     }
@@ -1210,13 +1255,13 @@
       if (s && t) links.push({ s: s, t: t });
     });
     nodes.forEach(function (n) {
-      n.x = (Math.random() - 0.5) * 260;
-      n.y = (Math.random() - 0.5) * 260;
-      n.z = (Math.random() - 0.5) * 260;
+      n.x = (Math.random() - 0.5) * 800;
+      n.y = (Math.random() - 0.5) * 800;
+      n.z = (Math.random() - 0.5) * 320;
       n.vx = 0; n.vy = 0; n.vz = 0; n.fx = 0; n.fy = 0; n.fz = 0;
     });
     graphData = { nodes: nodes, links: links };
-    for (var i = 0; i < 320; i++) simulateStep(false); // pre-settle
+    for (var i = 0; i < 500; i++) simulateStep(false); // pre-settle
 
     graphThemeColor = getComputedStyle(document.body)
       .getPropertyValue("--t-400").trim() || "#22d3ee";
@@ -1451,6 +1496,18 @@
   });
   blurSlider.addEventListener("change", updateSettings);
   transSlider.addEventListener("change", updateSettings);
+
+  brightnessSlider.addEventListener("input", function () {
+    var v = parseFloat(brightnessSlider.value) || 1;
+    brightnessVal.textContent = v.toFixed(2);
+    settings.brightness = v;
+    applySettings(); // live preview while dragging
+  });
+  brightnessSlider.addEventListener("change", function () {
+    localStorage.setItem(BRIGHTNESS_KEY, String(settings.brightness));
+  });
+
+  modeSelect.addEventListener("change", saveMode);
 
   bgUpload.addEventListener("change", function () {
     var file = bgUpload.files[0];

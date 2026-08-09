@@ -79,12 +79,73 @@ body, [data-theme="cyan"] {
   --gradient-stops: #fbbf24, #fde68a, #f59e0b, #fbbf24;
 }
 
+/* ── 2b. Light / Dark mode ───────────────────────────────────── */
+/* light (default) = current glass-on-light look; dark overrides tokens */
+body[data-mode="dark"] {
+  --text-primary: #f4f4f5;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-soft: rgba(255, 255, 255, 0.12);
+  --surface: rgba(15, 20, 30, 0.88);
+  --surface-glass: rgba(15, 20, 30, 0.5);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* light mode: bare (no-image) background is a light theme tint */
+body:not([data-mode="dark"]) .bg-layer {
+  background-color: var(--t-50);
+}
+
+/* dark mode: dim the background image behind the glass */
+body[data-mode="dark"] .bg-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 10, 16, 0.5);
+  pointer-events: none;
+}
+
+/* elements with hardcoded light backgrounds → dark equivalents */
+body[data-mode="dark"] .editor {
+  background: rgba(15, 20, 30, 0.72);
+}
+body[data-mode="dark"] .search-input,
+body[data-mode="dark"] .theme-select,
+body[data-mode="dark"] .folder-dialog-input {
+  background: rgba(255, 255, 255, 0.08);
+}
+body[data-mode="dark"] .search-input:focus {
+  background: rgba(255, 255, 255, 0.12);
+}
+body[data-mode="dark"] .folder-name.editing {
+  background: rgba(255, 255, 255, 0.1);
+}
+body[data-mode="dark"] .theme-select option {
+  background: #18181b;
+  color: #f4f4f5;
+}
+body[data-mode="dark"] .sidebar-header {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow:
+    var(--shadow-md),
+    var(--shadow-sm),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 12px rgba(255, 255, 255, 0.05);
+}
+body[data-mode="dark"] .content-preview code {
+  background: rgba(255, 255, 255, 0.12);
+}
+body[data-mode="dark"] .content-preview pre {
+  background: rgba(0, 0, 0, 0.35);
+}
+
 /* ── 3. Keyframes ────────────────────────────────────────────── */
 @keyframes gradientFlow {
   0%, 100% { background-position: 0% 50%; }
   50%      { background-position: 100% 50%; }
 }
-@keyframes rotateGlow { to { transform: rotate(360deg); } }
 @keyframes revealFade  { from { opacity: 0.1; }  to { opacity: 1; } }
 @keyframes revealBlur  { from { filter: blur(4px); } to { filter: blur(0px); } }
 @keyframes revealRotate { from { transform: rotate(3deg); } to { transform: rotate(0deg); } }
@@ -160,10 +221,14 @@ body, [data-theme="cyan"] {
   opacity: calc(var(--edge-proximity) / 100 * 0.9);
   transition: opacity 0.2s ease-out;
   padding: 2px;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
+  /* order matters: in Firefox `-webkit-mask` aliases to the `mask` shorthand and,
+     if it came after mask-composite: exclude, would reset it back to `add`
+     (whole-box glow = light inside the component). So webkit-first, and the
+     standard `mask-composite: exclude` stays the LAST declaration. */
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
 }
 
 .border-glow::after {
@@ -180,16 +245,14 @@ body, [data-theme="cyan"] {
   );
   opacity: calc(var(--edge-proximity) / 100 * 0.6);
   transition: opacity 0.25s ease-out;
-  animation: rotateGlow 6s linear infinite paused;
+  /* no rotate animation — rotating the box+mask ring swept the glow across the
+     component interior; the ::before conic already tracks the cursor */
   padding: 2px;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
+  /* webkit-first, mask-composite: exclude last — see ::before for why */
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
-}
-
-.border-glow[style*="--edge-proximity"]::after {
-  animation-play-state: running;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
 }
 
 /* ── 7. Sidebar ──────────────────────────────────────────────── */
@@ -337,6 +400,9 @@ body.resizing .sidebar {
 .note-list {
   flex: 1;
   overflow-y: auto;
+  /* 2px padding keeps the border-glow ring (inset:-2px) inside the scroll
+     container's clip region, so list items get the same edge glow as buttons */
+  padding: 2px;
   list-style: none;
   display: flex;
   flex-direction: column;
@@ -351,16 +417,26 @@ body.resizing .sidebar {
   font-size: 0.9rem;
   font-weight: 500;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: background 0.12s;
+  /* overflow must stay visible so the border-glow ring (inset:-2px) isn't clipped */
+  transition: background 0.12s, box-shadow 0.15s;
 }
 
+/* ellipsis moved onto an inner span so the li can keep overflow:visible */
+.note-list li .note-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* hover/active feedback stays on the border — no interior fill.
+   the cursor-tracked border-glow ring already lights the border on hover;
+   the selected note gets a persistent inset border ring instead of a fill */
 .note-list li:hover {
-  background: color-mix(in srgb, var(--t-400) 10%, transparent);
+  background: transparent;
 }
 .note-list li.active {
-  background: color-mix(in srgb, var(--t-400) 18%, transparent);
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--t-400);
 }
 
 .note-list-empty {
@@ -387,7 +463,7 @@ body.resizing .sidebar {
   transition: background 0.12s;
 }
 .note-list li.folder-row:hover {
-  background: color-mix(in srgb, var(--t-400) 10%, transparent);
+  background: transparent; /* border-glow ring is the hover feedback, not an interior fill */
 }
 .folder-caret {
   width: 1rem;
