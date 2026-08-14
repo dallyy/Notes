@@ -177,8 +177,7 @@ body[data-mode="dark"] .content-preview pre {
 }
 
 .rays-layer,
-.cursor-layer,
-.spark-layer {
+.cursor-layer {
   position: fixed;
   inset: 0;
   z-index: 1;
@@ -1160,9 +1159,6 @@ input[type="file"]::file-selector-button {
   align-items: center;
   justify-content: center;
   padding: var(--space-2xl);
-}
-.loading-spinner[hidden] {
-  display: none;
 }
 
 .spinner {

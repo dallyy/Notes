@@ -1,7 +1,7 @@
 // ── SideRays ── vanilla WebGL light-ray effect ──────────────
 // Adapted from @react-bits/SideRays-JS-CSS
 
-function hexToRgb(hex) {
+export function hexToRgb(hex) {
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return m
     ? [
@@ -79,7 +79,7 @@ void main() {
   gl_FragColor = color;
 }`;
 
-class SideRays {
+export class SideRays {
   constructor(container, options = {}) {
     this.container = container;
     this.canvas = null;

@@ -6,4 +6,5 @@ data/notes.json
 data/settings.json
 build/
 *.exe
+tools/
 .DS_Store

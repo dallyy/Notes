@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>随笔笔记</title>
     <link rel="stylesheet" href="/static/style.css?v=10" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+    <link rel="stylesheet" href="/static/vendor/katex/katex.min.css" />
 </head>
 <body data-theme="cyan">
 
@@ -30,7 +30,6 @@
     <div class="bg-layer" id="bgLayer"></div>
     <div class="rays-layer" id="raysLayer"></div>
     <div class="cursor-layer" id="cursorLayer"></div>
-    <div class="spark-layer" id="sparkLayer"></div>
 
     <div class="app-shell">
         <!-- mobile sidebar backdrop -->
@@ -185,11 +184,8 @@
         <p class="graph-hint">提示：笔记里用 <code>[[笔记标题]]</code> 建立关联 · 拖动旋转 · 滚轮缩放 · 点击节点打开笔记</p>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <script src="/static/side-rays.js"></script>
-    <script src="/static/splash-cursor.js"></script>
-    <script src="/static/click-spark.js"></script>
-    <script src="/static/app.js?v=11"></script>
+    <script src="/static/vendor/marked.min.js"></script>
+    <script src="/static/vendor/katex/katex.min.js"></script>
+    <script type="module" src="/static/js/main.js"></script>
 </body>
 </html>

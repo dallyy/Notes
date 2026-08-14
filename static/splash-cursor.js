@@ -1,7 +1,7 @@
 // ── SplashCursor ── WebGL fluid simulation ──────────────────
 // Vanilla JS port, theme-aware color. Falls back to Canvas 2D.
 
-class SplashCursor {
+export class SplashCursor {
   constructor(container, options = {}) {
     this.container = container;
     this.canvas = null;
