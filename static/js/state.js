@@ -1,17 +1,9 @@
-// ═══════════════════════════════════════════════════════════════
-// Notes App — shared mutable state & constants
-// ═══════════════════════════════════════════════════════════════
-
 export const state = {
   notes: [],
   currentNoteId: null,
   settings: {
-    background_image: null,
-    blur: 0,
-    transparency: 1.0,
-    theme: "cyan",
-    brightness: 1.0,
-    mode: "light",
+    background_image: null, blur: 0, transparency: 1.0, theme: "cyan",
+    brightness: 1.0, mode: "light",
   },
   isPreview: false,
   saveTimer: null,

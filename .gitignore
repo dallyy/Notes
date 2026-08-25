@@ -5,6 +5,6 @@ uploads/
 data/notes.json
 data/settings.json
 data/folders.json
-build/
-/server
+data/*.tmp
+uploads/*.tmp
 .DS_Store

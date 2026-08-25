@@ -1,148 +1,129 @@
-// ═══════════════════════════════════════════════════════════════
-// Notes App — [[wiki-link autocomplete]] for the editor textarea
-// ═══════════════════════════════════════════════════════════════
-
 import { state } from "./state.js";
+import { $, el } from "./dom.js";
 import { normTitle } from "./utils.js";
 
-const noteContent = document.getElementById("noteContent");
+const noteContent = $("#noteContent");
 
-// ── [[ wiki-link autocomplete ─────────────────────────────────
-var suggestBox = document.createElement("div");
-suggestBox.className = "link-suggest";
-suggestBox.hidden = true;
+const suggestBox = el("div", { class: "link-suggest", hidden: true });
 document.body.appendChild(suggestBox);
 
-var suggestItems = [];
-var suggestActive = -1;
-var suggestMatch = null;
+let suggestItems = [];
+let suggestActive = -1;
+let suggestMatch = null;
 
-function insideFencedCode() {
-  var before = noteContent.value.slice(0, noteContent.selectionStart);
-  var fences = before.split("```").length - 1;
-  return fences % 2 === 1;
-}
+const insideFencedCode = () => {
+  const before = noteContent.value.slice(0, noteContent.selectionStart);
+  return before.split("```").length % 2 === 0;   // 奇数个围栏 → 在代码块内
+};
 
-// unclosed [[query right before the caret
-function currentLinkPrefix() {
-  var val = noteContent.value;
-  var pos = noteContent.selectionStart;
+// 光标前未闭合的 [[query
+const currentLinkPrefix = () => {
+  const val = noteContent.value;
+  const pos = noteContent.selectionStart;
   if (typeof pos !== "number") return null;
-  var m = /\[\[([^\[\]\n]*)$/.exec(val.slice(0, pos));
-  if (!m || insideFencedCode()) return null;
-  return { start: m.index, query: m[1] };
-}
+  const m = /\[\[([^\[\]\n]*)$/.exec(val.slice(0, pos));
+  return m && !insideFencedCode() ? { start: m.index, query: m[1] } : null;
+};
 
-function suggestCandidates(query) {
-  var q = normTitle(query);
-  var list = state.notes.slice().sort(function (a, b) {
-    return new Date(b.updated_at) - new Date(a.updated_at);
-  });
+const suggestCandidates = (query) => {
+  const q = normTitle(query);
+  const list = [...state.notes].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   if (!q) return list.slice(0, 8);
-  var lower = query.toLowerCase();
-  return list.filter(function (n) {
-    var t = n.title || "未命名";
-    return normTitle(t).indexOf(q) !== -1 || t.toLowerCase().indexOf(lower) !== -1;
+  const lower = query.toLowerCase();
+  return list.filter((n) => {
+    const t = n.title || "未命名";
+    return normTitle(t).includes(q) || t.toLowerCase().includes(lower);
   }).slice(0, 8);
-}
+};
 
-function openSuggest() {
-  var m = currentLinkPrefix();
-  if (!m) { closeSuggest(); return; }
-  var items = suggestCandidates(m.query);
-  if (items.length === 0) { closeSuggest(); return; }
+const openSuggest = () => {
+  const m = currentLinkPrefix();
+  const items = m ? suggestCandidates(m.query) : [];
+  if (!m || items.length === 0) return closeSuggest();
   suggestMatch = m;
   suggestItems = items;
   suggestActive = 0;
   renderSuggestBox();
   positionSuggestBox();
   suggestBox.hidden = false;
-}
+};
 
-export function closeSuggest() {
+export const closeSuggest = () => {
   suggestBox.hidden = true;
   suggestBox.innerHTML = "";
   suggestMatch = null;
   suggestItems = [];
   suggestActive = -1;
-}
+};
 
-function renderSuggestBox() {
+const renderSuggestBox = () => {
   suggestBox.innerHTML = "";
-  suggestItems.forEach(function (n, i) {
-    var item = document.createElement("div");
-    item.className = "link-suggest-item" + (i === suggestActive ? " active" : "");
-    item.textContent = n.title || "未命名";
-    item.addEventListener("mousedown", function (e) {
-      e.preventDefault(); // keep focus in the textarea
-      insertSuggestion(n);
-    });
+  suggestItems.forEach((n, i) => {
+    const item = el("div", {
+      class: `link-suggest-item${i === suggestActive ? " active" : ""}`,
+      onMousedown: (e) => { e.preventDefault(); insertSuggestion(n); },
+    }, n.title || "未命名");
     suggestBox.appendChild(item);
   });
-  var activeEl = suggestBox.children[suggestActive];
-  if (activeEl) activeEl.scrollIntoView({ block: "nearest" });
-}
+  suggestBox.children[suggestActive]?.scrollIntoView({ block: "nearest" });
+};
 
-// caret pixel position via a hidden "mirror" of the textarea
-function caretCoordinates() {
-  var ta = noteContent;
-  var cs = getComputedStyle(ta);
-  var div = document.createElement("div");
-  div.style.position = "absolute";
-  div.style.visibility = "hidden";
-  div.style.whiteSpace = "pre-wrap";
-  div.style.wordWrap = "break-word";
-  [
-    "fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing",
+// 用隐藏 mirror 计算 textarea 中的光标像素坐标
+const caretCoordinates = () => {
+  const ta = noteContent;
+  const cs = getComputedStyle(ta);
+  const div = el("div", {
+    style: {
+      position: "absolute", visibility: "hidden", whiteSpace: "pre-wrap",
+      wordWrap: "break-word", width: `${ta.clientWidth}px`,
+    },
+  });
+  ["fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing",
     "lineHeight", "paddingLeft", "paddingRight", "paddingTop", "paddingBottom",
     "borderLeftWidth", "borderRightWidth", "borderTopWidth", "borderBottomWidth",
-    "textIndent",
-  ].forEach(function (p) { div.style[p] = cs[p]; });
-  div.style.width = ta.clientWidth + "px";
+    "textIndent"].forEach((p) => div.style[p] = cs[p]);
   div.textContent = ta.value.substring(0, ta.selectionStart);
-  var span = document.createElement("span");
-  span.textContent = div.textContent.length ? "​" : ".";
+  const span = el("span", {}, div.textContent.length ? "\u200b" : ".");
   div.appendChild(span);
   document.body.appendChild(div);
-  var coords = {
+  const coords = {
     top: span.offsetTop - ta.scrollTop,
     left: span.offsetLeft - ta.scrollLeft,
   };
-  document.body.removeChild(div);
+  div.remove();
   return coords;
-}
+};
 
-function positionSuggestBox() {
-  var coords = caretCoordinates();
-  var rect = noteContent.getBoundingClientRect();
-  var fontSize = parseFloat(getComputedStyle(noteContent).fontSize) || 14;
-  var x = rect.left + coords.left;
-  var y = rect.top + coords.top + fontSize * 1.4;
-  if (x + 200 > window.innerWidth) x = window.innerWidth - 220;
-  suggestBox.style.left = Math.max(8, x) + "px";
-  suggestBox.style.top = Math.max(8, y) + "px";
-}
+const positionSuggestBox = () => {
+  const coords = caretCoordinates();
+  const rect = noteContent.getBoundingClientRect();
+  const fontSize = parseFloat(getComputedStyle(noteContent).fontSize) || 14;
+  const x = rect.left + coords.left;
+  const y = rect.top + coords.top + fontSize * 1.4;
+  suggestBox.style.left = `${Math.max(8, x + 200 > window.innerWidth ? window.innerWidth - 220 : x)}px`;
+  suggestBox.style.top = `${Math.max(8, y)}px`;
+};
 
-function insertSuggestion(n) {
-  var m = suggestMatch || currentLinkPrefix();
+const insertSuggestion = (n) => {
+  const m = suggestMatch || currentLinkPrefix();
   if (!m) return;
-  var val = noteContent.value;
-  var pos = noteContent.selectionStart;
-  var title = n.title || "未命名";
-  noteContent.value = val.slice(0, m.start) + "[[" + title + "]]" + val.slice(pos);
-  var caret = m.start + 2 + title.length + 2;
+  const val = noteContent.value;
+  const pos = noteContent.selectionStart;
+  const title = n.title || "未命名";
+  noteContent.value = `${val.slice(0, m.start)}[[${title}]]${val.slice(pos)}`;
+  const caret = m.start + title.length + 4;     // m.start + "[[" + title + "]]"
   noteContent.setSelectionRange(caret, caret);
   closeSuggest();
   noteContent.focus();
-  noteContent.dispatchEvent(new Event("input")); // triggers autosave
-}
+  noteContent.dispatchEvent(new Event("input")); // 触发自动保存
+};
 
-// ── init ──────────────────────────────────────────────────────
-export function initAutocomplete() {
+// ── 初始化 ────────────────────────────────────────────────────
+export const initAutocomplete = () => {
   noteContent.addEventListener("input", openSuggest);
-  noteContent.addEventListener("keydown", function (e) {
+  noteContent.addEventListener("keydown", (e) => {
     if (suggestBox.hidden) return;
-    var key = e.key;
+    const { key } = e;
     if (key === "ArrowDown") {
       e.preventDefault();
       suggestActive = (suggestActive + 1) % suggestItems.length;
@@ -159,8 +140,6 @@ export function initAutocomplete() {
       closeSuggest();
     }
   });
-  noteContent.addEventListener("blur", function () {
-    setTimeout(closeSuggest, 120); // let item mousedown fire first
-  });
+  noteContent.addEventListener("blur", () => setTimeout(closeSuggest, 120));
   noteContent.addEventListener("scroll", closeSuggest);
-}
+};
