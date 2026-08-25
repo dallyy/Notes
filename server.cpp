@@ -3,6 +3,8 @@
 
 #include <fstream>
 #include <filesystem>
+#include <iostream>
+#include <unistd.h>
 #include <chrono>
 #include <random>
 #include <sstream>
@@ -15,13 +17,6 @@
 #include <thread>
 #include <string>
 #include <vector>
-
-#ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#endif
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -39,12 +34,13 @@ fs::path data_dir()      { return BASE_DIR / "data"; }
 fs::path uploads_dir()   { return BASE_DIR / "uploads"; }
 fs::path notes_path()    { return data_dir() / "notes.json"; }
 fs::path settings_path() { return data_dir() / "settings.json"; }
+fs::path folders_path()  { return data_dir() / "folders.json"; }
 
 // ── concurrency ──────────────────────────────────────────────
 // httplib serves each request on a worker thread. All data access is
 // serialized through this mutex: every read-modify-write cycle is
 // atomic in-process, and locking readers too means a concurrent file
-// replacement can never hit a Windows sharing violation.
+// replacement can never leave a torn write visible.
 std::mutex data_mutex;
 
 // ── helpers ──────────────────────────────────────────────────
@@ -66,11 +62,7 @@ std::string now_iso() {
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         now.time_since_epoch()) % 1000;
     std::tm gmt;
-#ifdef _WIN32
-    gmtime_s(&gmt, &t);
-#else
     gmtime_r(&t, &gmt);
-#endif
     std::ostringstream ss;
     ss << std::put_time(&gmt, "%Y-%m-%dT%H:%M:%S");
     ss << "." << std::setfill('0') << std::setw(3) << ms.count();
@@ -78,8 +70,8 @@ std::string now_iso() {
     return ss.str();
 }
 
-// Read JSON with a short retry: a concurrent atomic rename may briefly
-// make the target unavailable on Windows.
+// Read JSON with a short retry for robustness against transient I/O
+// issues during a concurrent atomic rename.
 json read_json(const fs::path& path, const json& def) {
     if (!fs::exists(path)) return def;
     for (int attempt = 0; attempt < 3; ++attempt) {
@@ -114,20 +106,8 @@ bool write_file_atomic(const fs::path& path, const std::string& content) {
             return false;
         }
     }
-#ifdef _WIN32
-    if (MoveFileExA(tmp.string().c_str(), path.string().c_str(),
-                    MOVEFILE_REPLACE_EXISTING)) {
-        return true;
-    }
-    // Fallback for filesystems without replace semantics.
-    ec.clear();
-    fs::remove(path, ec);
     fs::rename(tmp, path, ec);
     return !ec;
-#else
-    fs::rename(tmp, path, ec);
-    return !ec;
-#endif
 }
 
 json default_settings() {
@@ -135,11 +115,17 @@ json default_settings() {
             {"transparency", 1.0}, {"theme", "cyan"}};
 }
 
+json default_folders() {
+    return {{"folders", json::array()}, {"note_folder", json::object()}};
+}
+
 json load_notes() { return read_json(notes_path(), json::array()); }
 json load_settings() { return read_json(settings_path(), default_settings()); }
+json load_folders() { return read_json(folders_path(), default_folders()); }
 
 bool save_notes(const json& n) { return write_file_atomic(notes_path(), n.dump(2)); }
 bool save_settings(const json& s) { return write_file_atomic(settings_path(), s.dump(2)); }
+bool save_folders(const json& f) { return write_file_atomic(folders_path(), f.dump(2)); }
 
 // ── title normalization (mirror of frontend normTitle) ────────
 // Keep only [0-9A-Za-z一-鿿], lower-case ASCII. UTF-8 aware.
@@ -264,8 +250,18 @@ const std::vector<std::string> ALLOWED_THEMES =
 // ── main ─────────────────────────────────────────────────────
 
 int main(int argc, char* argv[]) {
-    // Determine base directory from executable path
-    fs::path exe = fs::absolute(fs::path(argv[0]));
+    // Determine base directory from the real executable path. On Linux,
+    // argv[0] is not guaranteed to point at the binary when it is launched
+    // through PATH or a symlink, so resolve /proc/self/exe when possible.
+    fs::path exe;
+    char exe_buf[4096];
+    ssize_t exe_len = readlink("/proc/self/exe", exe_buf, sizeof(exe_buf) - 1);
+    if (exe_len != -1) {
+        exe_buf[exe_len] = '\0';
+        exe = fs::path(exe_buf);
+    } else {
+        exe = fs::absolute(fs::path(argv[0]));
+    }
     BASE_DIR = exe.parent_path();
 
     // Ensure data directories exist
@@ -444,6 +440,38 @@ int main(int argc, char* argv[]) {
             return;
         }
         res.set_content(R"({"ok":true})", "application/json");
+    });
+
+    // ── folders api ──────────────────────────────────────
+    // Folders are UI state, but persisting them on the server keeps them
+    // available across browsers / OS reinstalls (unlike localStorage).
+    svr.Get("/api/folders", [](const httplib::Request&, httplib::Response& res) {
+        std::lock_guard<std::mutex> lock(data_mutex);
+        res.set_content(load_folders().dump(), "application/json");
+    });
+
+    svr.Put("/api/folders", [](const httplib::Request& req, httplib::Response& res) {
+        json body;
+        try { body = json::parse(req.body); }
+        catch (...) {
+            res.status = 400;
+            res.set_content(R"({"detail":"Invalid JSON body"})", "application/json");
+            return;
+        }
+        if (!body.contains("folders") || !body["folders"].is_array() ||
+            !body.contains("note_folder") || !body["note_folder"].is_object()) {
+            res.status = 400;
+            res.set_content(R"({"detail":"folders must be an array and note_folder an object"})", "application/json");
+            return;
+        }
+
+        std::lock_guard<std::mutex> lock(data_mutex);
+        if (!save_folders(body)) {
+            res.status = 500;
+            res.set_content(R"({"detail":"Failed to persist folders"})", "application/json");
+            return;
+        }
+        res.set_content(body.dump(), "application/json");
     });
 
     // ── settings api ──────────────────────────────────────

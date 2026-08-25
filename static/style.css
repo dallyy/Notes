@@ -651,11 +651,11 @@ body.resizing .sidebar {
   color: var(--text-muted);
 }
 
-/* preview mode — :has() drives display switching */
-.editor-active:has(.btn-preview.active) .content-input {
+/* preview mode — JS toggles .preview-mode on the editor shell */
+.editor-active.preview-mode .content-input {
   display: none;
 }
-.editor-active:has(.btn-preview.active) .content-preview {
+.editor-active.preview-mode .content-preview {
   display: block;
 }
 
@@ -1295,7 +1295,7 @@ input[type="file"]::file-selector-button {
 }
 
 .graph-canvas {
-  flex: 1;
+  flex: 1 1 0;
   display: block;
   width: 100%;
   min-height: 0;

@@ -4,7 +4,7 @@ __pycache__/
 uploads/
 data/notes.json
 data/settings.json
+data/folders.json
 build/
-*.exe
-tools/
+/server
 .DS_Store

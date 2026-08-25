@@ -77,11 +77,13 @@ function initSidebarResize() {
 
   var MIN_W = 180, MAX_W = 500, W_KEY = "sidebar-width";
 
-  var savedW = localStorage.getItem(W_KEY);
-  if (savedW) {
-    var w = parseInt(savedW, 10);
-    if (w >= MIN_W && w <= MAX_W) sidebarEl.style.width = w + "px";
-  }
+  try {
+    var savedW = localStorage.getItem(W_KEY);
+    if (savedW) {
+      var w = parseInt(savedW, 10);
+      if (w >= MIN_W && w <= MAX_W) sidebarEl.style.width = w + "px";
+    }
+  } catch (e) { /* localStorage unavailable — ignore */ }
 
   var drag = { on: false, sx: 0, sw: 0 };
 
@@ -105,10 +107,12 @@ function initSidebarResize() {
     drag.on = false;
     resizerEl.classList.remove("active");
     document.body.classList.remove("resizing");
-    localStorage.setItem(
-      W_KEY,
-      parseInt(getComputedStyle(sidebarEl).width, 10)
-    );
+    try {
+      localStorage.setItem(
+        W_KEY,
+        parseInt(getComputedStyle(sidebarEl).width, 10)
+      );
+    } catch (e) { /* localStorage unavailable — ignore */ }
   });
 }
 

@@ -66,11 +66,13 @@ export async function selectNote(id, openPreview) {
     state.isPreview = true;
     btn.textContent = "编辑";
     btn.classList.add("active");
+    editorActive.classList.add("preview-mode");
     notePreview.innerHTML = renderMarkdown(note.content || "*暂无内容*");
   } else {
     state.isPreview = false;
     btn.textContent = "预览";
     btn.classList.remove("active");
+    editorActive.classList.remove("preview-mode");
   }
 
   editorMeta.textContent = "更新于 " + formatDate(note.updated_at);
@@ -176,15 +178,17 @@ export function initEditor() {
   document.getElementById("btnSave").addEventListener("click", saveCurrentNote);
   document.getElementById("btnDelete").addEventListener("click", deleteNote);
 
-  // preview toggle — CSS :has() handles display switching
+  // preview toggle — .preview-mode class handles display switching
   document.getElementById("btnPreview").addEventListener("click", function () {
     state.isPreview = !state.isPreview;
     var btn = document.getElementById("btnPreview");
     if (state.isPreview) {
+      editorActive.classList.add("preview-mode");
       notePreview.innerHTML = renderMarkdown(noteContent.value || "*暂无内容*");
       btn.textContent = "编辑";
       btn.classList.add("active");
     } else {
+      editorActive.classList.remove("preview-mode");
       btn.textContent = "预览";
       btn.classList.remove("active");
     }

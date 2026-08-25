@@ -166,7 +166,8 @@ function pickGraphNode(px, py) {
 
 function drawGraph() {
   var ctx = graphCtx;
-  var W = graphCanvasEl.clientWidth, H = graphCanvasEl.clientHeight;
+  var W = graphCanvasEl.clientWidth || graphOverlayEl.clientWidth;
+  var H = graphCanvasEl.clientHeight || graphOverlayEl.clientHeight;
   if (!W || !H) return;
   ctx.clearRect(0, 0, W, H);
   var camDist = (0.5 * Math.min(W, H)) * 1.7;
@@ -236,10 +237,22 @@ function drawGraph() {
 
 function resizeGraphCanvas() {
   var dpr = window.devicePixelRatio || 1;
-  var w = Math.max(1, Math.round(graphCanvasEl.clientWidth * dpr));
-  var h = Math.max(1, Math.round(graphCanvasEl.clientHeight * dpr));
-  graphCanvasEl.width = w;
-  graphCanvasEl.height = h;
+  var overlayRect = graphOverlayEl.getBoundingClientRect();
+  var toolbarEl = document.querySelector(".graph-toolbar");
+  var hintEl = document.querySelector(".graph-hint");
+  var toolbarH = toolbarEl ? toolbarEl.getBoundingClientRect().height : 0;
+  var hintH = hintEl ? hintEl.getBoundingClientRect().height : 0;
+
+  // Firefox sometimes reports 0 for a flexed canvas right after the
+  // overlay is unhidden; derive the size from the overlay itself.
+  var cssW = Math.max(1, Math.round(graphCanvasEl.clientWidth || overlayRect.width));
+  var cssH = Math.max(1, Math.round(graphCanvasEl.clientHeight ||
+      (overlayRect.height - toolbarH - hintH)));
+  graphCanvasEl.style.width = cssW + "px";
+  graphCanvasEl.style.height = cssH + "px";
+
+  graphCanvasEl.width = Math.round(cssW * dpr);
+  graphCanvasEl.height = Math.round(cssH * dpr);
   graphCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
@@ -278,9 +291,13 @@ export function openGraph() {
     nodes.length + " 篇笔记 · " + links.length + " 条关联";
 
   graphOverlayEl.hidden = false;
-  resizeGraphCanvas();
-  if (graphRaf) cancelAnimationFrame(graphRaf);
-  graphRaf = requestAnimationFrame(graphRenderLoop);
+  // Wait one frame so Firefox has flushed the overlay layout before
+  // measuring/sizing the canvas.
+  requestAnimationFrame(function () {
+    resizeGraphCanvas();
+    if (graphRaf) cancelAnimationFrame(graphRaf);
+    graphRaf = requestAnimationFrame(graphRenderLoop);
+  });
 }
 
 export function closeGraph() {

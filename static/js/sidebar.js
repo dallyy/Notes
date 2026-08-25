@@ -21,31 +21,94 @@ const DND_TYPE = "application/x-notes-folder";
 let searchDebounce = null;
 
 // ── folder state & persistence ───────────────────────────────
-export function loadFolderState() {
+function readLocalFolderState() {
   try {
     var saved = JSON.parse(localStorage.getItem(FOLDERS_KEY) || "{}");
-    state.folders = Array.isArray(saved.folders) ? saved.folders : [];
-    state.noteFolder = saved.noteFolder || {};
+    if (Array.isArray(saved)) {
+      // legacy localStorage format: a plain folder array
+      state.folders = saved;
+      state.noteFolder = {};
+    } else {
+      state.folders = Array.isArray(saved.folders) ? saved.folders : [];
+      state.noteFolder = saved.noteFolder || {};
+    }
+    return state.folders.length > 0 || Object.keys(state.noteFolder).length > 0;
   } catch (e) {
     state.folders = [];
     state.noteFolder = {};
+    return false;
   }
+}
+
+function persistLocalFolderState() {
+  try {
+    localStorage.setItem(
+      FOLDERS_KEY,
+      JSON.stringify({ folders: state.folders, noteFolder: state.noteFolder })
+    );
+  } catch (e) { /* localStorage unavailable — server copy still persists */ }
+}
+
+function uploadFoldersToServer() {
+  fetch("/api/folders", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ folders: state.folders, note_folder: state.noteFolder }),
+  }).catch(function () { /* server may be unavailable */ });
+}
+
+// Folders are kept in localStorage for instant startup, and mirrored to
+// the server so they survive browser switches and local-data clearing.
+export function loadFolderState() {
+  var localHasData = readLocalFolderState();
+  var localFolders = state.folders.slice();
+  var localNoteFolder = Object.assign({}, state.noteFolder);
+
   try {
     state.expandedFolders = JSON.parse(localStorage.getItem(EXPANDED_KEY) || "{}");
   } catch (e) {
     state.expandedFolders = {};
   }
+
+  fetch("/api/folders", { cache: "no-cache" })
+    .then(function (res) {
+      if (!res.ok) return null;
+      return res.json().catch(function () { return null; });
+    })
+    .then(function (serverData) {
+      if (!serverData) return;
+      var serverHasData =
+        (Array.isArray(serverData.folders) && serverData.folders.length > 0) ||
+        (serverData.note_folder && Object.keys(serverData.note_folder).length > 0);
+      if (serverHasData) {
+        // Merge server copy with any local-only folders (one-way migration).
+        var mergedFolders = Array.isArray(serverData.folders) ? serverData.folders.slice() : [];
+        var ids = {};
+        mergedFolders.forEach(function (f) { ids[f.id] = true; });
+        localFolders.forEach(function (f) {
+          if (!ids[f.id]) { mergedFolders.push(f); ids[f.id] = true; }
+        });
+        state.folders = mergedFolders;
+        state.noteFolder = Object.assign({}, localNoteFolder, serverData.note_folder || {});
+        persistLocalFolderState();
+        uploadFoldersToServer();
+        renderNoteList();
+      } else if (localHasData) {
+        uploadFoldersToServer();
+      }
+    })
+    .catch(function () { /* keep localStorage-only mode */ });
 }
 
 export function saveFolderState() {
-  localStorage.setItem(
-    FOLDERS_KEY,
-    JSON.stringify({ folders: state.folders, noteFolder: state.noteFolder })
-  );
+  persistLocalFolderState();
+  uploadFoldersToServer();
 }
 
 function saveExpanded() {
-  localStorage.setItem(EXPANDED_KEY, JSON.stringify(state.expandedFolders));
+  try {
+    localStorage.setItem(EXPANDED_KEY, JSON.stringify(state.expandedFolders));
+  } catch (e) { /* localStorage unavailable — ignore */ }
 }
 
 function commitFolders() {

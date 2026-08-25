@@ -1,21 +1,21 @@
 # 随笔笔记（Notes）
 
-本地优先（local-first）的单机 Markdown 笔记应用：双链（Wiki-Link）、3D 知识图谱、KaTeX 公式渲染、可换主题与背景。零数据库、零框架、零构建步骤（前端无打包），双击 `run.bat` 即可使用。
+本地优先（local-first）的单机 Markdown 笔记应用：双链（Wiki-Link）、3D 知识图谱、KaTeX 公式渲染、可换主题与背景。零数据库、零框架、零构建步骤（前端无打包），在 Linux 终端运行 `./run.sh` 即可使用。
 
 ## 快速开始
 
-```bat
-run.bat          :: 启动浏览器并运行 server.exe（http://127.0.0.1:8000）
-build.bat        :: 重新编译后端（需要 g++，见下文「构建」）
+```bash
+./run.sh          # 启动浏览器并运行 server（http://127.0.0.1:8000）
+./build.sh        # 重新编译后端（需要 g++，见下文「构建」）
 ```
 
 ## 目录结构
 
 ```
 ├── server.cpp           # 后端源码（单文件，cpp-httplib + nlohmann/json）
-├── server.exe           # 编译产物（被 .gitignore 忽略）
-├── build.bat            # 构建脚本（自动寻找 g++）
-├── run.bat              # 启动脚本
+├── server               # 编译产物（被 .gitignore 忽略）
+├── build.sh             # 构建脚本（调用 g++）
+├── run.sh               # 启动脚本（自动打开浏览器）
 ├── httplib.h / json.hpp # header-only 依赖（cpp-httplib 0.51.0 / nlohmann::json）
 ├── templates/index.html # 唯一 HTML 壳（单页）
 ├── static/
@@ -26,7 +26,8 @@ build.bat        :: 重新编译后端（需要 g++，见下文「构建」）
 │   └── vendor/          # 本地化第三方依赖（marked 18.0.9、KaTeX 0.16.9 含字体）
 ├── data/
 │   ├── notes.json       # 笔记数据（运行时生成，被 .gitignore 忽略）
-│   └── settings.json    # 服务器侧外观设置（同上）
+│   ├── settings.json    # 服务器侧外观设置（同上）
+│   └── folders.json     # 服务器侧文件夹状态（同上）
 └── uploads/             # 背景图片（同上）
 ```
 
@@ -40,7 +41,7 @@ build.bat        :: 重新编译后端（需要 g++，见下文「构建」）
     ├── api.js        fetch 封装（api/apiSafe）
     ├── markdown.js   Markdown + 数学 + 双链渲染管线
     ├── editor.js     笔记 CRUD、防抖自动保存、预览切换
-    ├── sidebar.js    列表渲染、文件夹（localStorage）、搜索
+    ├── sidebar.js    列表渲染、文件夹（服务器 JSON + localStorage 镜像）、搜索
     ├── autocomplete.js  [[双链自动补全
     ├── graph.js      3D 力导向知识图谱（Canvas 2D 透视投影）
     ├── settings.js   外观设置抽屉
@@ -48,11 +49,11 @@ build.bat        :: 重新编译后端（需要 g++，见下文「构建」）
       └── 导入 side-rays.js / splash-cursor.js（ES 模块）
         │ fetch (JSON REST)
         ▼
-server.exe (cpp-httplib, 127.0.0.1:8000)
+server (cpp-httplib, 127.0.0.1:8000)
   单进程多工作线程，data_mutex 串行化全部数据访问
-  原子落盘：写 .tmp → MoveFileEx(REPLACE_EXISTING) / rename
+  原子落盘：写 .tmp → rename(2) 原子替换
         ▼
-data/notes.json · data/settings.json · uploads/*.jpg|png|gif|webp
+data/notes.json · data/settings.json · data/folders.json · uploads/*.jpg|png|gif|webp
 ```
 
 ### REST API
@@ -68,6 +69,7 @@ data/notes.json · data/settings.json · uploads/*.jpg|png|gif|webp
 | GET / PUT | `/api/settings` | 读 / 更新 `blur(0-20) transparency(0.1-1.0) theme(5 选 1 白名单)` |
 | POST | `/api/upload-background` | 上传背景图（魔数校验，≤20MiB） |
 | DELETE | `/api/background` | 移除背景图 |
+| GET / PUT | `/api/folders` | 读 / 更新文件夹列表与笔记-文件夹归属 |
 
 ### 数据模型
 
@@ -82,13 +84,13 @@ data/notes.json · data/settings.json · uploads/*.jpg|png|gif|webp
 
 | 状态 | 位置 | 理由 |
 |---|---|---|
-| 笔记内容、theme/blur/transparency/背景图 | 服务器 JSON | 需要跨设备/备份的"内容" |
-| 亮度、深浅模式、文件夹、展开态、侧栏宽度 | localStorage | 纯本机 UI 偏好，无需落服务器 |
+| 笔记内容、theme/blur/transparency/背景图、文件夹 | 服务器 JSON | 需要跨设备/备份的"内容" |
+| 亮度、深浅模式、文件夹展开态、侧栏宽度 | localStorage | 纯本机 UI 偏好，无需落服务器 |
 
 ## 并发与持久化模型
 
-- httplib 每个请求跑在工作线程上，因此**所有**数据端点经 `data_mutex` 串行化（读端点也加锁，避免 Windows 文件替换时句柄共享冲突）。
-- **原子落盘**：先写 `notes.json.tmp`，成功后 `MoveFileExA(MOVEFILE_REPLACE_EXISTING)` 一步替换。任何时刻读到的是完整的旧文件或新文件，进程崩溃也不会产生半写文件。
+- httplib 每个请求跑在工作线程上，因此**所有**数据端点经 `data_mutex` 串行化（读端点也加锁，避免并发文件替换时出现读写交错）。
+- **原子落盘**：先写 `notes.json.tmp`，成功后通过 `rename(2)` 一步替换。任何时刻读到的是完整的旧文件或新文件，进程崩溃也不会产生半写文件。
 - 单用户本地场景下这是最简且足够强的模型；如需多机同步或海量笔记，可演进为 SQLite（WAL）或每笔记一文件。
 
 ## 双链维护（重命名安全）
@@ -108,11 +110,12 @@ data/notes.json · data/settings.json · uploads/*.jpg|png|gif|webp
 后端只依赖两个 header-only 库，无其他依赖：
 
 ```
-g++ -O2 -std=c++17 -static -pthread -I. server.cpp -o server.exe -lws2_32
+g++ -O2 -std=c++17 -pthread -I. server.cpp -o server
 ```
 
-- 便携工具链（推荐）：从 https://github.com/skeeto/w64devkit/releases 下载 w64devkit，解压到 `tools\`（被 .gitignore 忽略），`build.bat` 会自动使用。
-- 也可使用 PATH 中任意 MinGW-w64 g++（MSVC `cl` 亦可，需自行加 `/EHsc` 与 `ws2_32.lib`）。
+- Debian/Ubuntu：`sudo apt install build-essential`
+- Fedora/RHEL：`sudo dnf install gcc-c++`
+- 也可以设置 `GXX` 环境变量指定其他兼容的 C++ 编译器（例如 `GXX=clang++ ./build.sh`）。
 
 ## 前端第三方依赖（已本地化）
 
