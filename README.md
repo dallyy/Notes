@@ -82,7 +82,7 @@ Go 后端（net/http，全部依赖构造函数注入）
 | POST | `/api/upload-background` | 上传背景图（魔数校验，≤20MiB） |
 | DELETE | `/api/background` | 移除背景图 |
 | GET / PUT | `/api/folders` | 读 / 更新文件夹列表与笔记-文件夹归属 |
-| POST | `/api/chat` | AI 对话：嵌入检索 + 图谱连通块 + 思考链回答（自动/指定 session_id） |
+| POST | `/api/chat` | AI 对话（支持 SSE 流式、实时联网）：嵌入检索 + 图谱连通块 + 思考链回答 |
 | GET / POST | `/api/chat/sessions` | 会话列表（支持 `?q=` 检索） / 新建会话 |
 | GET / DELETE | `/api/chat/sessions/{id}` | 读取 / 删除会话 |
 
@@ -123,6 +123,8 @@ Go 后端（net/http，全部依赖构造函数注入）
 ## AI 对话（嵌入检索 + 图谱连通块 + 思考链）
 
 - **入口**：主页侧栏「AI 对话」按钮会重定向到独立页面 `/chat`（全屏布局），页面复用主页样式；左侧为持久化会话列表，支持新建、检索、删除，右侧为多轮对话。
+- **流式输出**：`POST /api/chat` 支持 `"stream": true`，以 `text/event-stream` 返回 `delta` / `done` / `error` 事件，前端打字机式渲染。
+- **实时联网**：默认开启（请求可传 `"web_search": false` 关闭）。后端用 DuckDuckGo HTML 检索（无需 API Key），把前 5 条结果写入上下文文档；系统提示中注入当前时间，便于回答“今天是几号”等时效性问题。
 - **模型**：标题/查询嵌入 `qwen3.7-text-embedding`；对话 `deepseek-v4-pro-0813`（DashScope OpenAI 兼容模式，`enable_thinking: true` 开启思考链）。
 - **检索链路**：把问题经 embedding 模型算成向量 → 在笔记标题向量的 **K-D 树**上查最近邻 → 找到命中标题所在知识图谱**连通块**的全部标题 → 按标题匹配 `notes.json` 中对应正文 → 将「问题 + 各标题与正文」写成 `data/chat_context.json` 上下文文档 → 交给对话模型回答。
 - **配置**：创建 `data/ai_config.json`（已被 .gitignore 忽略，不会提交到 git）：

@@ -23,6 +23,7 @@ type Server struct {
 	sessions ChatSessionStore
 	asker    Asker
 	mu       sync.Mutex
+	chatMu   sync.Mutex
 	mux      *http.ServeMux
 }
 

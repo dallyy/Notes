@@ -1,9 +1,9 @@
-// 独立 /chat 页面：全屏布局 + 持久化会话（创建/检索/删除/多轮对话）。
+// 独立 /chat 页面：全屏布局 + 持久化会话（创建/检索/删除）+ 流式回答。
 // 依赖全部通过构造函数注入；@autobind / @debounce 简化事件处理。
 import { $, el } from "./dom.js";
 import { apiSafe } from "./api.js";
 import { renderMarkdown } from "./markdown.js";
-import { storage } from "./utils.js";
+import { storage, showToast } from "./utils.js";
 import { BRIGHTNESS_KEY } from "./state.js";
 import { initEffects, initSideRays, initSplashCursor } from "./effects.js";
 import { autobind, debounce } from "./decorators.js";
@@ -40,9 +40,11 @@ interface ChatPageDeps {
   search: HTMLInputElement;
   newBtn: HTMLElement;
   title: HTMLElement;
+  webSearch: HTMLInputElement;
   api: typeof apiSafe;
   render: typeof renderMarkdown;
   store: typeof storage;
+  toast: typeof showToast;
   brightnessKey: string;
   effects: {
     initEffects: typeof initEffects;
@@ -54,7 +56,6 @@ interface ChatPageDeps {
 class ChatPage {
   private sessions: ChatSession[] = [];
   private currentId: string | null = null;
-  private renderedSessions = new Set<string>();
 
   constructor(private deps: ChatPageDeps) {}
 
@@ -69,7 +70,6 @@ class ChatPage {
 
   renderSessions() {
     this.deps.sessionList.innerHTML = "";
-    this.renderedSessions.clear();
     if (this.sessions.length === 0) {
       this.deps.sessionList.appendChild(el("div", { class: "chat-session-empty" }, "暂无会话"));
       return;
@@ -85,7 +85,6 @@ class ChatPage {
           onClick: (e: Event) => { e.stopPropagation(); void this.deleteSession(s.id); },
         }, "✕"));
       this.deps.sessionList.appendChild(item);
-      this.renderedSessions.add(s.id);
     });
   }
 
@@ -149,7 +148,53 @@ class ChatPage {
     return msg;
   }
 
-  // ── 发送 ────────────────────────────────────────────────────
+  // ── 流式对话 ────────────────────────────────────────────────
+  private async streamChat(body: unknown, onDelta: (content: string, reasoning: string) => void) {
+    const resp = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok || !resp.body) {
+      const text = await resp.text().catch(() => "请求失败");
+      this.deps.toast(`AI 对话失败: ${text}`, "error");
+      return null;
+    }
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let final: ChatResult | null = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let sep;
+      while ((sep = buffer.indexOf("\n\n")) >= 0) {
+        const raw = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        let event = "message";
+        let data = "";
+        for (const line of raw.split("\n")) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          else if (line.startsWith("data:")) data += line.slice(5).trim();
+        }
+        if (!data) continue;
+        let obj: any;
+        try { obj = JSON.parse(data); } catch { continue; }
+        if (event === "delta") {
+          onDelta(obj.content || "", obj.reasoning || "");
+        } else if (event === "done") {
+          final = obj as ChatResult;
+        } else if (event === "error") {
+          this.deps.toast(obj.detail || "AI 对话失败", "error");
+          return null;
+        }
+      }
+    }
+    return final;
+  }
+
   @autobind
   async send() {
     const question = this.deps.input.value.trim();
@@ -157,19 +202,34 @@ class ChatPage {
     this.deps.input.value = "";
     this.addMessage("user", question);
 
-    const thinking = this.addMessage("assistant", "思考中…");
-    const result = await this.deps.api("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: this.currentId, question }),
-    }, "AI 对话失败") as ChatResult | null;
-    thinking.remove();
-    if (!result) return;
+    const assistantMsg = this.addMessage("assistant", "");
+    assistantMsg.textContent = "思考中…";
+    let acc = "";
+
+    const result = await this.streamChat({
+      session_id: this.currentId,
+      question,
+      stream: true,
+      web_search: this.deps.webSearch.checked,
+    }, (content) => {
+      if (content) {
+        acc += content;
+        assistantMsg.textContent = acc;
+        this.deps.messages.scrollTop = this.deps.messages.scrollHeight;
+      }
+    });
+
+    if (!result) {
+      assistantMsg.textContent = "（回答失败，请重试）";
+      return;
+    }
 
     this.currentId = result.session_id;
     this.deps.title.textContent = result.session_title || this.deps.title.textContent;
-    this.addMessage("assistant", result.answer || "（无回答）",
-      result.titles?.length ? `命中：${result.titles.join(" · ")}` : "");
+    assistantMsg.innerHTML = this.deps.render(result.answer || "（无回答）");
+    if (result.titles?.length) {
+      assistantMsg.appendChild(el("div", { class: "chat-meta" }, `命中：${result.titles.join(" · ")}`));
+    }
     void this.loadSessions();
   }
 
@@ -224,9 +284,11 @@ const page = new ChatPage({
   search: $("#chatSearch") as HTMLInputElement,
   newBtn: $("#chatNew")!,
   title: $("#chatTitle")!,
+  webSearch: $("#chatWebSearch") as HTMLInputElement,
   api: apiSafe,
   render: renderMarkdown,
   store: storage,
+  toast: showToast,
   brightnessKey: BRIGHTNESS_KEY,
   effects: { initEffects, initSideRays, initSplashCursor },
 });

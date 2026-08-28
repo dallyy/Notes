@@ -17,6 +17,7 @@ type AIConfig struct {
 	EnableThinking bool
 	Timeout        time.Duration
 	TopK           int
+	WebSearch      bool
 }
 
 // LoadAIConfig 读取 data/ai_config.json，环境变量优先级最高。

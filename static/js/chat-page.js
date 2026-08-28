@@ -4,12 +4,12 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-// 独立 /chat 页面：全屏布局 + 持久化会话（创建/检索/删除/多轮对话）。
+// 独立 /chat 页面：全屏布局 + 持久化会话（创建/检索/删除）+ 流式回答。
 // 依赖全部通过构造函数注入；@autobind / @debounce 简化事件处理。
 import { $, el } from "./dom.js";
 import { apiSafe } from "./api.js";
 import { renderMarkdown } from "./markdown.js";
-import { storage } from "./utils.js";
+import { storage, showToast } from "./utils.js";
 import { BRIGHTNESS_KEY } from "./state.js";
 import { initEffects, initSideRays, initSplashCursor } from "./effects.js";
 import { autobind, debounce } from "./decorators.js";
@@ -18,7 +18,6 @@ class ChatPage {
         this.deps = deps;
         this.sessions = [];
         this.currentId = null;
-        this.renderedSessions = new Set();
     }
     // ── 会话列表 ────────────────────────────────────────────────
     async loadSessions(query = "") {
@@ -31,7 +30,6 @@ class ChatPage {
     }
     renderSessions() {
         this.deps.sessionList.innerHTML = "";
-        this.renderedSessions.clear();
         if (this.sessions.length === 0) {
             this.deps.sessionList.appendChild(el("div", { class: "chat-session-empty" }, "暂无会话"));
             return;
@@ -45,7 +43,6 @@ class ChatPage {
                 onClick: (e) => { e.stopPropagation(); void this.deleteSession(s.id); },
             }, "✕"));
             this.deps.sessionList.appendChild(item);
-            this.renderedSessions.add(s.id);
         });
     }
     onSearch() {
@@ -103,25 +100,93 @@ class ChatPage {
         this.deps.messages.scrollTop = this.deps.messages.scrollHeight;
         return msg;
     }
-    // ── 发送 ────────────────────────────────────────────────────
+    // ── 流式对话 ────────────────────────────────────────────────
+    async streamChat(body, onDelta) {
+        const resp = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (!resp.ok || !resp.body) {
+            const text = await resp.text().catch(() => "请求失败");
+            this.deps.toast(`AI 对话失败: ${text}`, "error");
+            return null;
+        }
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let final = null;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done)
+                break;
+            buffer += decoder.decode(value, { stream: true });
+            let sep;
+            while ((sep = buffer.indexOf("\n\n")) >= 0) {
+                const raw = buffer.slice(0, sep);
+                buffer = buffer.slice(sep + 2);
+                let event = "message";
+                let data = "";
+                for (const line of raw.split("\n")) {
+                    if (line.startsWith("event:"))
+                        event = line.slice(6).trim();
+                    else if (line.startsWith("data:"))
+                        data += line.slice(5).trim();
+                }
+                if (!data)
+                    continue;
+                let obj;
+                try {
+                    obj = JSON.parse(data);
+                }
+                catch {
+                    continue;
+                }
+                if (event === "delta") {
+                    onDelta(obj.content || "", obj.reasoning || "");
+                }
+                else if (event === "done") {
+                    final = obj;
+                }
+                else if (event === "error") {
+                    this.deps.toast(obj.detail || "AI 对话失败", "error");
+                    return null;
+                }
+            }
+        }
+        return final;
+    }
     async send() {
         const question = this.deps.input.value.trim();
         if (!question)
             return;
         this.deps.input.value = "";
         this.addMessage("user", question);
-        const thinking = this.addMessage("assistant", "思考中…");
-        const result = await this.deps.api("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ session_id: this.currentId, question }),
-        }, "AI 对话失败");
-        thinking.remove();
-        if (!result)
+        const assistantMsg = this.addMessage("assistant", "");
+        assistantMsg.textContent = "思考中…";
+        let acc = "";
+        const result = await this.streamChat({
+            session_id: this.currentId,
+            question,
+            stream: true,
+            web_search: this.deps.webSearch.checked,
+        }, (content) => {
+            if (content) {
+                acc += content;
+                assistantMsg.textContent = acc;
+                this.deps.messages.scrollTop = this.deps.messages.scrollHeight;
+            }
+        });
+        if (!result) {
+            assistantMsg.textContent = "（回答失败，请重试）";
             return;
+        }
         this.currentId = result.session_id;
         this.deps.title.textContent = result.session_title || this.deps.title.textContent;
-        this.addMessage("assistant", result.answer || "（无回答）", result.titles?.length ? `命中：${result.titles.join(" · ")}` : "");
+        assistantMsg.innerHTML = this.deps.render(result.answer || "（无回答）");
+        if (result.titles?.length) {
+            assistantMsg.appendChild(el("div", { class: "chat-meta" }, `命中：${result.titles.join(" · ")}`));
+        }
         void this.loadSessions();
     }
     onSubmit(e) {
@@ -190,9 +255,11 @@ const page = new ChatPage({
     search: $("#chatSearch"),
     newBtn: $("#chatNew"),
     title: $("#chatTitle"),
+    webSearch: $("#chatWebSearch"),
     api: apiSafe,
     render: renderMarkdown,
     store: storage,
+    toast: showToast,
     brightnessKey: BRIGHTNESS_KEY,
     effects: { initEffects, initSideRays, initSplashCursor },
 });

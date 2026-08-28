@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -246,11 +248,6 @@ func (s *Server) handleDeleteBackground(w http.ResponseWriter, _ *http.Request) 
 
 // ── AI 会话持久化 ─────────────────────────────────────────────
 
-type chatBody struct {
-	SessionID string `json:"session_id"`
-	Question  string `json:"question"`
-}
-
 func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) error {
 	sessions, _ := s.sessions.LoadSessions()
 	sessions = filterSessions(sessions, r.URL.Query().Get("q"))
@@ -302,6 +299,13 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) err
 	return nil
 }
 
+type chatBody struct {
+	SessionID string `json:"session_id"`
+	Question  string `json:"question"`
+	Stream    bool   `json:"stream"`
+	WebSearch *bool  `json:"web_search"`
+}
+
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) error {
 	var body chatBody
 	if err := readJSON(r, &body); err != nil {
@@ -311,6 +315,13 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) error {
 	if question == "" {
 		return httpError(http.StatusBadRequest, "question must be a non-empty string")
 	}
+	webSearch := true
+	if body.WebSearch != nil {
+		webSearch = *body.WebSearch
+	}
+
+	s.chatMu.Lock()
+	defer s.chatMu.Unlock()
 
 	sessions, _ := s.sessions.LoadSessions()
 	idx := -1
@@ -336,7 +347,58 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) error {
 	session := sessions[idx]
 
 	notes, _ := s.notes.LoadNotes()
-	ans, err := s.asker.Ask(r.Context(), notes, question, session.Messages)
+
+	if body.Stream {
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			return httpError(http.StatusInternalServerError, "streaming not supported")
+		}
+		w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("X-Accel-Buffering", "no")
+		w.WriteHeader(http.StatusOK)
+		flusher.Flush()
+
+		ans, err := s.asker.AskStream(r.Context(), notes, question, session.Messages, webSearch,
+			func(contentDelta, reasoningDelta string) {
+				if contentDelta == "" && reasoningDelta == "" {
+					return
+				}
+				writeSSE(w, flusher, "delta", map[string]any{
+					"content":   contentDelta,
+					"reasoning": reasoningDelta,
+				})
+			})
+		if err != nil {
+			writeSSE(w, flusher, "error", map[string]string{"detail": err.Error()})
+			return nil
+		}
+
+		if len(session.Messages) == 0 {
+			session.Title = sessionTitle(question)
+		}
+		session.Messages = append(session.Messages,
+			ChatMessage{Role: "user", Content: question},
+			ChatMessage{Role: "assistant", Content: ans.Answer})
+		session.UpdatedAt = nowISO()
+		sessions[idx] = session
+		if err := s.sessions.SaveSessions(sessions); err != nil {
+			writeSSE(w, flusher, "error", map[string]string{"detail": "Failed to persist sessions"})
+			return nil
+		}
+		writeSSE(w, flusher, "done", map[string]any{
+			"answer":        ans.Answer,
+			"reasoning":     ans.Reasoning,
+			"matched_title": ans.MatchedTitle,
+			"titles":        ans.Titles,
+			"context":       ans.Context,
+			"session_id":    session.ID,
+			"session_title": session.Title,
+		})
+		return nil
+	}
+
+	ans, err := s.asker.Ask(r.Context(), notes, question, session.Messages, webSearch)
 	if err != nil {
 		return httpError(http.StatusBadGateway, err.Error())
 	}
@@ -363,6 +425,12 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) error {
 		"session_title": session.Title,
 	})
 	return nil
+}
+
+func writeSSE(w http.ResponseWriter, flusher http.Flusher, event string, data any) {
+	b, _ := json.Marshal(data)
+	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, b)
+	flusher.Flush()
 }
 
 // ── 工具 ────────────────────────────────────────────────────────

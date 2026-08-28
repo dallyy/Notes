@@ -30,7 +30,8 @@ func main() {
 	httpClient := &http.Client{}
 	dashscope := NewDashScopeClient(cfg, httpClient)
 	index := NewEmbeddingIndex(cfg, dashscope, filepath.Join(baseDir, "data", "embeddings.json"))
-	asker := NewAIService(cfg, dashscope, dashscope, index, filepath.Join(baseDir, "data", "chat_context.json"))
+	searcher := NewDuckDuckGoSearch(httpClient)
+	asker := NewAIService(cfg, dashscope, dashscope, searcher, index, filepath.Join(baseDir, "data", "chat_context.json"))
 
 	deps := Deps{
 		BaseDir:  baseDir,

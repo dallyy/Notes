@@ -49,6 +49,9 @@
             </header>
             <div class="chat-messages" id="chatMessages"></div>
             <form class="chat-input-row" id="chatForm">
+                <label class="chat-web-toggle" title="让 AI 先实时检索网络，再结合笔记回答">
+                    <input type="checkbox" id="chatWebSearch" checked /> 实时联网
+                </label>
                 <input class="chat-input" id="chatInput" type="text"
                        placeholder="问点什么，例如：今天是几号" autocomplete="off" />
                 <button class="chat-send" type="submit">发送</button>

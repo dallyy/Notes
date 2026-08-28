@@ -1607,9 +1607,22 @@ input[type="file"]::file-selector-button {
 
 .chat-input-row {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
   padding: 0.75rem;
   border-top: 1px solid var(--border-soft);
+}
+.chat-web-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chat-web-toggle input {
+  accent-color: var(--t-400);
 }
 .chat-input {
   flex: 1;
