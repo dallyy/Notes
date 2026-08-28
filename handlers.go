@@ -83,7 +83,6 @@ func (s *Server) handleUpdateNote(w http.ResponseWriter, r *http.Request) error 
 	if idx < 0 {
 		return httpError(http.StatusNotFound, "Note not found")
 	}
-	oldTitle := notes[idx].Title
 	if body.Title != nil {
 		notes[idx].Title = *body.Title
 	}
@@ -91,27 +90,6 @@ func (s *Server) handleUpdateNote(w http.ResponseWriter, r *http.Request) error 
 		notes[idx].Content = *body.Content
 	}
 	notes[idx].UpdatedAt = nowISO()
-
-	applied := notes[idx].Title
-	normOld, normNew := NormTitle(oldTitle), NormTitle(applied)
-	if normOld != "" && applied != "" && normOld != normNew {
-		holders := 0
-		for _, n := range notes {
-			if NormTitle(n.Title) == normOld {
-				holders++
-			}
-		}
-		if holders == 0 {
-			now := nowISO()
-			for i := range notes {
-				newText, changed := RewriteWikiLinks(notes[i].Content, normOld, applied)
-				if changed {
-					notes[i].Content = newText
-					notes[i].UpdatedAt = now
-				}
-			}
-		}
-	}
 
 	if err := s.notes.SaveNotes(notes); err != nil {
 		return httpError(http.StatusInternalServerError, "Failed to persist notes")

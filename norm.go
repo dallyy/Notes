@@ -35,3 +35,13 @@ func FindNoteByTitle(notes []Note, title string) (Note, bool) {
 	}
 	return best, bestNorm != ""
 }
+
+// FindNoteByID 按 ID 精确查找笔记。
+func FindNoteByID(notes []Note, id string) (Note, bool) {
+for _, n := range notes {
+if n.ID == id {
+return n, true
+}
+}
+return Note{}, false
+}

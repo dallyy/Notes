@@ -11,10 +11,28 @@ func TestNormTitle(t *testing.T) {
 	}
 }
 
-func TestRewriteWikiLinks(t *testing.T) {
-	out, changed := RewriteWikiLinks("见 [[旧标题#节|别名]] 与 [[旧标题]]", NormTitle("旧标题"), "新标题")
-	if !changed || !strings.Contains(out, "[[新标题#节|别名]]") || !strings.Contains(out, "[[新标题]]") {
-		t.Fatalf("RewriteWikiLinks = %q, %v", out, changed)
+func TestParseWikiLinksIDAnchor(t *testing.T) {
+	links := ParseWikiLinks("见 [[@abc123#小节|别名]] 与 [[旧标题]]")
+	if len(links) != 2 {
+		t.Fatalf("links len = %d", len(links))
+	}
+	if links[0].ID != "abc123" || links[0].Section != "小节" || links[0].Alias != "别名" {
+		t.Fatalf("id link = %+v", links[0])
+	}
+	if links[1].Title != "旧标题" {
+		t.Fatalf("legacy link = %+v", links[1])
+	}
+}
+
+func TestWikiGraphIDAnchor(t *testing.T) {
+	notes := []Note{
+		{ID: "1", Title: "A", Content: "[[@2]]", UpdatedAt: "2026-01-01T00:00:00.000+00:00"},
+		{ID: "2", Title: "B", Content: "[[@1]]", UpdatedAt: "2026-01-02T00:00:00.000+00:00"},
+		{ID: "3", Title: "C", Content: "", UpdatedAt: "2026-01-03T00:00:00.000+00:00"},
+	}
+	comp := BuildWikiGraph(notes).Component("1")
+	if len(comp) != 2 {
+		t.Fatalf("component size = %d", len(comp))
 	}
 }
 

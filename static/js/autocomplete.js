@@ -102,8 +102,8 @@ const insertSuggestion = (n) => {
     const val = noteContent.value;
     const pos = noteContent.selectionStart;
     const title = n.title || "未命名";
-    noteContent.value = `${val.slice(0, m.start)}[[${title}]]${val.slice(pos)}`;
-    const caret = m.start + title.length + 4; // m.start + "[[" + title + "]]"
+    noteContent.value = `${val.slice(0, m.start)}[[@${n.id}|${title}]]${val.slice(pos)}`;
+    const caret = m.start + n.id.length + title.length + 6; // [[@id|title]]
     noteContent.setSelectionRange(caret, caret);
     closeSuggest();
     noteContent.focus();

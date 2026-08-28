@@ -41,15 +41,20 @@ export const escapeHtml = (s) => String(s)
 export const formatDate = (iso) => new Date(iso).toLocaleString();
 // 标题归一化：去标点/空格，英文小写，仅保留一-鿿与字母数字
 export const normTitle = (s) => String(s).toLowerCase().replace(/[^一-鿿A-Za-z0-9]/g, "");
+// 解析 [[@id#小节|别名]]（ID 锚定，新）或 [[标题#小节|别名]]（旧式，兼容）。
 export const parseWikiLink = (raw) => {
     const pipe = raw.indexOf("|");
-    let title = pipe >= 0 ? raw.slice(0, pipe) : raw;
-    const alias = pipe >= 0 ? raw.slice(pipe + 1) : null;
-    const hash = title.indexOf("#");
-    if (hash >= 0)
-        title = title.slice(0, hash);
-    return { title: title.trim(), alias: (alias || "").trim() };
+    const target = pipe >= 0 ? raw.slice(0, pipe) : raw;
+    const alias = (pipe >= 0 ? raw.slice(pipe + 1) : "").trim();
+    const hash = target.indexOf("#");
+    const head = (hash >= 0 ? target.slice(0, hash) : target).trim();
+    const section = hash >= 0 ? target.slice(hash + 1).trim() : "";
+    if (head.startsWith("@") && head.length > 1) {
+        return { type: "id", id: head.slice(1), section, alias };
+    }
+    return { type: "title", title: head, section, alias };
 };
+export const findNoteById = (id) => state.notes.find((n) => n.id === id) || null;
 export const findNoteByTitle = (title) => {
     const t = normTitle(title);
     if (!t)

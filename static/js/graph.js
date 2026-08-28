@@ -1,6 +1,6 @@
 import { state } from "./state.js";
 import { $ } from "./dom.js";
-import { findNoteByTitle, parseWikiLink } from "./utils.js";
+import { findNoteByTitle, findNoteById, parseWikiLink } from "./utils.js";
 import { selectNote } from "./editor.js";
 const graphOverlayEl = $("#graphOverlay");
 const graphCanvasEl = $("#graphCanvas");
@@ -15,7 +15,7 @@ let graphDrag = null;
 let graphThemeColor = "#22d3ee";
 const parseWikiLinks = (text) => [...text.matchAll(/\[\[([^\]]+)\]\]/g)]
     .map((m) => parseWikiLink(m[1]))
-    .filter((link) => link.title);
+    .filter((link) => (link.type === "id" ? link.id : link.title));
 const computeGraph = () => {
     const nodes = state.notes.map((n) => ({ id: n.id, title: n.title || "未命名", degree: 0 }));
     const nodeById = new Map(nodes.map((nd) => [nd.id, nd]));
@@ -23,7 +23,7 @@ const computeGraph = () => {
     const links = [];
     state.notes.forEach((n) => {
         parseWikiLinks(n.content || "").forEach((ref) => {
-            const target = findNoteByTitle(ref.title);
+            const target = ref.type === "id" ? findNoteById(ref.id) : findNoteByTitle(ref.title);
             if (!target || target.id === n.id)
                 return; // 跳过悬空链与自链
             const key = `${n.id}>${target.id}`;

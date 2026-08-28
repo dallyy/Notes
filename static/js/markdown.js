@@ -1,4 +1,4 @@
-import { findNoteByTitle, escapeHtml, parseWikiLink } from "./utils.js";
+import { findNoteByTitle, findNoteById, escapeHtml, parseWikiLink } from "./utils.js";
 // marked / katex 是 vendor 里的 classic-script 全局变量。
 export const renderMarkdown = (text) => {
     const blocks = [];
@@ -7,17 +7,18 @@ export const renderMarkdown = (text) => {
         blocks.push(m);
         return `\x00CODE${blocks.length - 1}\x00`;
     });
-    // 双链 [[标题]] / [[标题|别名]] / [[标题#小节]]
+    // 双链：新格式 [[@id#小节|别名]]（ID 锚定），旧格式 [[标题...]] 兼容
     text = text.replace(/\[\[([^\]]+)\]\]/g, (_, raw) => {
         const link = parseWikiLink(raw);
-        if (!link.title)
+        const note = link.type === "id" ? findNoteById(link.id) : findNoteByTitle(link.title);
+        const fallback = link.type === "id" ? link.id : link.title;
+        if (!fallback)
             return _;
-        const note = findNoteByTitle(link.title);
-        const label = link.alias || link.title;
+        const label = link.alias || note?.title || fallback;
         const cls = note ? "note-link" : "note-link note-link--unresolved";
         const attrs = note
             ? ` data-note="${note.id}"`
-            : ` data-title="${escapeHtml(link.title)}"`;
+            : ` data-title="${escapeHtml(fallback)}"`;
         return `<a class="${cls}" href="#"${attrs}>${escapeHtml(label)}</a>`;
     });
     // KaTeX 数学块/行内公式
