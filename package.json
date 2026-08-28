@@ -1,0 +1,13 @@
+{
+  "name": "notes-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:ts": "tsc",
+    "build": "tsc && go build -o notes-server .",
+    "start": "go run ."
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,3 +1,5 @@
+node_modules/
+notes-server
 .venv/
 __pycache__/
 *.pyc
@@ -5,9 +7,9 @@ uploads/
 data/notes.json
 data/settings.json
 data/folders.json
-data/*.tmp
-uploads/*.tmp
-.DS_Store
 data/ai_config.json
 data/embeddings.json
 data/chat_context.json
+data/*.tmp
+uploads/*.tmp
+.DS_Store

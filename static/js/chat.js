@@ -1,6 +1,23 @@
-// AI 对话入口：从主页侧栏重定向到独立 /chat 页面。
-export const initChat = () => {
-  document.getElementById("btnToggleChat").addEventListener("click", () => {
-    window.location.href = "/chat";
-  });
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+// AI 对话入口：从主页侧栏重定向到独立 /chat 页面。
+import { autobind } from "./decorators.js";
+class ChatEntry {
+    constructor(btn) {
+        this.btn = btn;
+    }
+    onClick() {
+        window.location.href = "/chat";
+    }
+    init() {
+        this.btn?.addEventListener("click", this.onClick);
+    }
+}
+__decorate([
+    autobind
+], ChatEntry.prototype, "onClick", null);
+export const initChat = () => new ChatEntry(document.getElementById("btnToggleChat")).init();

@@ -1,24 +1,27 @@
 # 随笔笔记（Notes）
 
-本地优先（local-first）的单机 Markdown 笔记应用：双链（Wiki-Link）、3D 知识图谱、KaTeX 公式渲染、可换主题与背景。零数据库、零框架、零构建步骤（前端无打包，后端纯 Python 标准库），在 Linux 终端运行 `./run.sh` 即可使用。
+本地优先（local-first）的单机 Markdown 笔记应用：双链（Wiki-Link）、3D 知识图谱、KaTeX 公式渲染、可换主题与背景。后端为 Go（标准库 net/http，无第三方依赖），前端为 TypeScript（编译为原生 ES Modules）。在 Linux 终端运行 `./run.sh` 即可使用。
 
 ## 快速开始
 
 ```bash
-./run.sh          # 启动浏览器并运行 server.py（http://127.0.0.1:8000）
-python3 server.py # 仅启动后端（不打开浏览器）
+./run.sh          # 构建（如缺失）并启动 notes-server（http://127.0.0.1:8000）
+./build.sh        # 只编译 Go 后端
+npm run build:ts  # 只编译 TypeScript 前端（源：static/ts → 输出：static/js）
 ```
 
 ## 目录结构
 
 ```
-├── server.py            # 后端（单文件，Python 标准库，零第三方依赖）
-├── ai.py                # AI 检索增强：标题嵌入 + K-D 树 + 图谱连通块 + 思考链对话
+├── *.go / go.mod        # 后端源码（Go 标准库，零第三方依赖）
+├── notes-server         # Go 编译产物（被 .gitignore 忽略）
+├── build.sh             # Go 构建脚本
 ├── run.sh               # 启动脚本（自动打开浏览器）
 ├── templates/index.html # 主页（笔记 SPA）
 ├── templates/chat.html  # AI 对话独立页（复用主页样式）
 ├── static/
-│   ├── js/              # 前端 ES 模块（见下方模块图）
+│   ├── ts/              # 前端 TypeScript 源（ES 模块，见下方模块图）
+│   ├── js/              # tsc 编译产物（由 npm run build:ts 生成）
 │   ├── style.css        # 主题变量 + 玻璃拟态样式
 │   ├── side-rays.js     # WebGL 侧光特效（ES 模块）
 │   ├── splash-cursor.js # WebGL 流体光标特效（ES 模块）
@@ -38,27 +41,33 @@ python3 server.py # 仅启动后端（不打开浏览器）
 ```
 浏览器 (SPA, 原生 ES Modules)
   static/js/main.js ── 入口
-    ├── state.js      共享可变状态（notes/settings/folders/...）
-    ├── dom.js         DOM 构建辅助（$ / el）
-    ├── utils.js      toast/confirm/标题归一化/笔记查找/storage
-    ├── api.js        fetch 封装（api / apiSafe）
-    ├── markdown.js   Markdown + 数学 + 双链渲染管线
-    ├── editor.js     笔记 CRUD、防抖自动保存、预览切换
-    ├── sidebar.js    列表渲染、文件夹（服务器 JSON + localStorage 镜像）、搜索
-    ├── autocomplete.js  [[双链自动补全
-    ├── chat.js       主页「AI 对话」按钮 → 重定向 /chat
-    ├── chat-page.js  独立 /chat 页面逻辑（多轮对话）
-    ├── graph.js      3D 力导向知识图谱（Canvas 2D 透视投影）
-    ├── settings.js   外观设置抽屉
-    └── effects.js    WebGL 特效 + 边框辉光 + 侧栏调宽
+    ├── state.ts      共享可变状态（notes/settings/folders/...）
+    ├── dom.ts         DOM 构建辅助（$ / el）
+    ├── decorators.ts @autobind / @debounce / @throttle 装饰器
+    ├── utils.ts      toast/confirm/标题归一化/笔记查找/storage
+    ├── api.ts        fetch 封装（api / apiSafe）
+    ├── markdown.ts   Markdown + 数学 + 双链渲染管线
+    ├── editor.ts     笔记 CRUD、防抖自动保存、预览切换
+    ├── sidebar.ts    列表渲染、文件夹（服务器 JSON + localStorage 镜像）、搜索
+    ├── autocomplete.ts  [[双链自动补全
+    ├── chat.ts       主页「AI 对话」按钮 → 重定向 /chat
+    ├── chat-page.ts  独立 /chat 页面逻辑（ChatPage 类，构造注入 + @autobind）
+    ├── graph.ts      3D 力导向知识图谱（Canvas 2D 透视投影）
+    ├── settings.ts   外观设置抽屉
+    └── effects.ts    WebGL 特效 + 边框辉光 + 侧栏调宽
       └── 导入 side-rays.js / splash-cursor.js（ES 模块）
         │ fetch (JSON REST)
         ▼
-server.py（Python 标准库 http.server）
-    ├── 装饰器（高阶函数）：@route 注册路由、@locked 串行化数据访问
-    ├── dataclasses 反射：Settings 用 fields() 观察字段、patch() 运行时 setattr
-    ├── 标准库复用：email 解析 multipart、mimetypes 推断静态类型
-    └── 原子落盘：临时文件 + os.replace，读者永远看不到半写文件
+Go 后端（net/http，全部依赖构造函数注入）
+    ├── server.go     Server/Deps：路由注册 + 装饰器式中介（locked 等）
+    ├── handlers.go   笔记/文件夹/设置/上传/AI 对话处理器
+    ├── store.go      NoteStore/SettingsStore/FolderStore 接口 + JSON 实现
+    ├── kdtree.go     K-D 树算法（高维最近邻）
+    ├── graph.go      知识图谱连通块算法
+    ├── norm.go       标题归一化 / 查找
+    ├── wikilinks.go  [[双链]] 解析与重命名重写
+    ├── ai.go         DashScope 客户端、嵌入缓存索引、检索增强问答
+    └── main.go       装配依赖并启动
 ```
 
 ### REST API
@@ -131,10 +140,28 @@ server.py（Python 标准库 http.server）
   也支持环境变量 `DASHSCOPE_BASE_URL` / `DASHSCOPE_API_KEY` / `EMBEDDING_MODEL` / `CHAT_MODEL` 临时覆盖。
 - 标题嵌入向量缓存在 `data/embeddings.json`：只有新增笔记或标题变化时才重新调用 embedding 接口。
 
+## 环境配置（Arch Linux）
+
+```bash
+# 1. 安装 Go 与 Node.js/npm（TypeScript 经 npm 安装到项目内）
+sudo pacman -S go npm
+
+# 2. 安装 TypeScript（写入 package-lock.json，之后可 npm ci）
+npm install
+
+# 3. 编译前端 TS（static/ts → static/js）
+npm run build:ts
+
+# 4. 编译后端 Go
+./build.sh
+```
+
+之后直接 `./run.sh` 启动。若只改前端，重复第 3 步；若只改后端，重复第 4 步。已提交的 `static/js/*.js` 是编译产物，没有 npm 环境也能先运行（`./run.sh` 仍需要 go）。
+
 ## 运行要求
 
-- Python 3.10+（仅标准库，无需 pip 安装任何包）
-- Arch Linux：`sudo pacman -S python`（通常已预装）
+- Go 1.22+（仅标准库，零第三方依赖）
+- Node.js + TypeScript（仅前端源码编译时需要；编译产物已提交）
 
 ## 前端第三方依赖（已本地化）
 
@@ -149,3 +176,4 @@ server.py（Python 标准库 http.server）
 - notes.json 单文件全量重写在笔记数 >10k 时需改 SQLite/分片存储。
 - 无自动备份/历史版本；可加"每次写入前轮转 .bak"。
 - 前端无测试；可引入 Node 侧单测覆盖 normTitle/findNoteByTitle/rewrite_wiki_links 等纯函数。
+- 前端 TS 与后端 Go 的接口/算法测试可分别用 `go test` 与 vitest 补齐。
