@@ -1,5 +1,6 @@
 node_modules/
 notes-server
+notes-server.exe
 .venv/
 __pycache__/
 *.pyc

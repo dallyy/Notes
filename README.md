@@ -144,6 +144,23 @@ Go 后端（net/http，全部依赖构造函数注入）
   也支持环境变量 `DASHSCOPE_BASE_URL` / `DASHSCOPE_API_KEY` / `EMBEDDING_MODEL` / `CHAT_MODEL` 临时覆盖。
 - 标题嵌入向量缓存在 `data/embeddings.json`：只有新增笔记或标题变化时才重新调用 embedding 接口。
 
+## Windows 快速开始
+
+```bat
+:: 安装 Go（https://go.dev/dl/）与 Node.js（https://nodejs.org/）
+:: 然后在项目目录打开 cmd / PowerShell：
+
+npm install
+npm run build:ts
+build.bat
+run.bat
+```
+
+说明：
+- 后端为 `notes-server.exe`（`build.bat` 生成，已被 .gitignore 忽略）。
+- 前端编译产物 `static/js/*.js` 已提交；如果只改 Go 后端，无需 `npm install`，直接 `build.bat` + `run.bat` 即可运行。
+- `run.bat` 会在启动后自动打开 http://127.0.0.1:8000 。
+
 ## 环境配置（Arch Linux）
 
 ```bash
