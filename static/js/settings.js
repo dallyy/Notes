@@ -18,9 +18,6 @@ const brightnessVal = $("#brightnessVal");
 const modeSelect = $("#modeSelect");
 
 export const openSettings = () => {
-  // 右侧抽屉互斥：关闭 AI 对话抽屉
-  document.getElementById("chatPanel")?.classList.remove("open");
-  document.getElementById("chatOverlay")?.classList.remove("open");
   settingsPanel.classList.add("open");
   settingsOverlay.classList.add("open");
 };

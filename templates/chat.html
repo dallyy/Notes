@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 对话 · 随笔笔记</title>
+    <link rel="stylesheet" href="/static/style.css?v=11" />
+    <link rel="stylesheet" href="/static/vendor/katex/katex.min.css?v=11" />
+</head>
+<body data-theme="cyan">
+
+    <!-- SVG glass filter（与主页一致） -->
+    <svg aria-hidden="true" style="position:absolute;width:0;height:0">
+        <defs>
+            <filter id="glass-filter" color-interpolation-filters="sRGB">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="0.7" result="blur"/>
+                <feDisplacementMap in="blur" in2="blur" scale="8"  xChannelSelector="R" yChannelSelector="G" result="dispR"/>
+                <feDisplacementMap in="blur" in2="blur" scale="12" xChannelSelector="G" yChannelSelector="B" result="dispG"/>
+                <feDisplacementMap in="blur" in2="blur" scale="10" xChannelSelector="B" yChannelSelector="R" result="dispB"/>
+                <feColorMatrix in="dispR" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="red"/>
+                <feColorMatrix in="dispG" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="green"/>
+                <feColorMatrix in="dispB" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="blue"/>
+                <feBlend in="red" in2="green" mode="screen" result="rg"/>
+                <feBlend in="rg"  in2="blue"  mode="screen"/>
+            </filter>
+        </defs>
+    </svg>
+
+    <!-- 背景特效层（与主页一致） -->
+    <div class="bg-layer" id="bgLayer"></div>
+    <div class="rays-layer" id="raysLayer"></div>
+    <div class="cursor-layer" id="cursorLayer"></div>
+
+    <div class="chat-page">
+        <header class="chat-topbar border-glow">
+            <a class="chat-back" href="/">← 返回笔记</a>
+            <h1>AI 对话</h1>
+        </header>
+
+        <div class="chat-card border-glow">
+            <div class="chat-messages" id="chatMessages"></div>
+            <form class="chat-input-row" id="chatForm">
+                <input class="chat-input" id="chatInput" type="text"
+                       placeholder="问点什么，例如：今天是几号" autocomplete="off" />
+                <button class="chat-send" type="submit">发送</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="/static/vendor/marked.min.js?v=11"></script>
+    <script src="/static/vendor/katex/katex.min.js?v=11"></script>
+    <script type="module" src="/static/js/chat-page.js?v=11"></script>
+</body>
+</html>

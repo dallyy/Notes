@@ -15,7 +15,8 @@ python3 server.py # 仅启动后端（不打开浏览器）
 ├── server.py            # 后端（单文件，Python 标准库，零第三方依赖）
 ├── ai.py                # AI 检索增强：标题嵌入 + K-D 树 + 图谱连通块 + 思考链对话
 ├── run.sh               # 启动脚本（自动打开浏览器）
-├── templates/index.html # 唯一 HTML 壳（单页）
+├── templates/index.html # 主页（笔记 SPA）
+├── templates/chat.html  # AI 对话独立页（复用主页样式）
 ├── static/
 │   ├── js/              # 前端 ES 模块（见下方模块图）
 │   ├── style.css        # 主题变量 + 玻璃拟态样式
@@ -45,6 +46,8 @@ python3 server.py # 仅启动后端（不打开浏览器）
     ├── editor.js     笔记 CRUD、防抖自动保存、预览切换
     ├── sidebar.js    列表渲染、文件夹（服务器 JSON + localStorage 镜像）、搜索
     ├── autocomplete.js  [[双链自动补全
+    ├── chat.js       主页「AI 对话」按钮 → 重定向 /chat
+    ├── chat-page.js  独立 /chat 页面逻辑（多轮对话）
     ├── graph.js      3D 力导向知识图谱（Canvas 2D 透视投影）
     ├── settings.js   外观设置抽屉
     └── effects.js    WebGL 特效 + 边框辉光 + 侧栏调宽
@@ -108,6 +111,7 @@ server.py（Python 标准库 http.server）
 
 ## AI 对话（嵌入检索 + 图谱连通块 + 思考链）
 
+- **入口**：主页侧栏「AI 对话」按钮会重定向到独立页面 `/chat`，页面复用主页样式（玻璃拟态、主题变量、背景特效）。
 - **模型**：标题/查询嵌入 `qwen3.7-text-embedding`；对话 `deepseek-v4-pro-0813`（DashScope OpenAI 兼容模式，`enable_thinking: true` 开启思考链）。
 - **检索链路**：把问题经 embedding 模型算成向量 → 在笔记标题向量的 **K-D 树**上查最近邻 → 找到命中标题所在知识图谱**连通块**的全部标题 → 按标题匹配 `notes.json` 中对应正文 → 将「问题 + 各标题与正文」写成 `data/chat_context.json` 上下文文档 → 交给对话模型回答。
 - **配置**：创建 `data/ai_config.json`（已被 .gitignore 忽略，不会提交到 git）：

@@ -31,6 +31,7 @@ DATA, UPLOADS = BASE / "data", BASE / "uploads"
 NOTES_FILE, SETTINGS_FILE, FOLDERS_FILE = (
     DATA / "notes.json", DATA / "settings.json", DATA / "folders.json")
 INDEX_FILE = BASE / "templates" / "index.html"
+CHAT_FILE = BASE / "templates" / "chat.html"
 
 MAX_BODY = 20 * 1024 * 1024          # 20 MiB（背景图上限）
 MAX_TITLE, MAX_CONTENT, MAX_THEME = 512, 2 * 1024 * 1024, 32
@@ -255,6 +256,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == "/":
             return self.send_file(INDEX_FILE, "text/html; charset=utf-8")
+        if path == "/chat":
+            return self.send_file(CHAT_FILE, "text/html; charset=utf-8")
         if path.startswith("/static/") or path.startswith("/uploads/"):
             return self._serve_mount(path)
         return self._dispatch()

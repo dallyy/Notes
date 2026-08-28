@@ -1409,52 +1409,60 @@ input[type="file"]::file-selector-button {
   scrollbar-color: color-mix(in srgb, var(--t-400) 25%, transparent) transparent;
 }
 
-/* ── 21. AI Chat Drawer ─────────────────────────────────────── */
-.chat-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(2px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--transition-normal);
-}
-.chat-overlay.open {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.chat-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
+/* ── 21. AI Chat Page（独立 /chat 页面，复用主页主题变量）────── */
+.chat-page {
+  position: relative;
+  z-index: 2;
+  max-width: 800px;
+  margin: 0 auto;
   height: 100vh;
-  width: 360px;
-  z-index: 100;
-  background: var(--surface);
-  backdrop-filter: blur(16px);
-  border-left: 1px solid color-mix(in srgb, var(--t-400) 12%, transparent);
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  padding: var(--space-xl);
+  padding: var(--space-lg);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  transform: translateX(100%);
-  transition: transform var(--transition-normal);
+  gap: var(--space-md);
 }
-.chat-panel.open {
-  transform: translateX(0);
+
+.chat-topbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  backdrop-filter: blur(12px);
 }
-.chat-panel h2 {
-  font-size: 1.15rem;
+.chat-topbar h1 {
+  font-size: 1.05rem;
+  margin: 0;
   color: var(--text-primary);
   font-weight: 600;
 }
-.chat-hint {
-  margin: 0;
-  font-size: 0.75rem;
-  color: var(--text-muted);
+
+.chat-back {
+  color: var(--t-600);
+  text-decoration: none;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.chat-back:hover {
+  background: color-mix(in srgb, var(--t-400) 12%, transparent);
+  color: var(--text-primary);
+}
+
+.chat-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  backdrop-filter: blur(14px);
+  overflow: hidden;
 }
 
 .chat-messages {
@@ -1463,15 +1471,14 @@ input[type="file"]::file-selector-button {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  padding-right: 0.2rem;
+  padding: 1rem;
 }
 .chat-msg {
-  max-width: 92%;
+  max-width: 88%;
   padding: 0.55rem 0.7rem;
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
   line-height: 1.5;
-  white-space: normal;
   word-break: break-word;
 }
 .chat-msg--user {
@@ -1497,6 +1504,8 @@ input[type="file"]::file-selector-button {
 .chat-input-row {
   display: flex;
   gap: 0.5rem;
+  padding: 0.75rem;
+  border-top: 1px solid var(--border-soft);
 }
 .chat-input {
   flex: 1;
@@ -1525,8 +1534,7 @@ input[type="file"]::file-selector-button {
 }
 
 @media (max-width: 768px) {
-  .chat-panel {
-    width: 300px;
-    max-width: 90vw;
+  .chat-page {
+    padding: var(--space-md);
   }
 }
