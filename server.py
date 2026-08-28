@@ -24,6 +24,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from ai import AIError, ai_chat, load_config, norm_title
+
 BASE = Path(__file__).resolve().parent
 DATA, UPLOADS = BASE / "data", BASE / "uploads"
 NOTES_FILE, SETTINGS_FILE, FOLDERS_FILE = (
@@ -102,11 +104,6 @@ def save_json(path, obj):
 def now_iso():
     """与旧版 now_iso() 格式一致：2026-08-25T21:00:00.000+00:00"""
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
-
-
-def norm_title(s):
-    """标题归一化：仅保留 [0-9A-Za-z一-鿿]，ASCII 小写。"""
-    return re.sub(r"[^一-鿿0-9A-Za-z]+", "", s.lower())
 
 
 def rewrite_wiki_links(text, norm_old, new_title):
@@ -452,6 +449,29 @@ def delete_background(self, m):
     if not save_json(SETTINGS_FILE, asdict(settings)):
         raise HttpError(500, "Failed to persist settings")
     self.send_json({"ok": True})
+
+
+# ── AI 对话（嵌入检索 + 图谱连通块 + 思考链对话）────────────────
+# 注意：不 @locked —— AI 网络调用可能耗时数秒，不能在网络期间
+# 持有数据锁；notes 快照在锁内读取后，交给 ai_chat 在锁外处理。
+@route("/api/chat", "POST")
+def chat(self, m):
+    body = self.read_json()
+    question = body.get("question", "")
+    if not isinstance(question, str) or not question.strip():
+        raise HttpError(400, "question must be a non-empty string")
+    history = body.get("history")
+    if history is not None and not isinstance(history, list):
+        raise HttpError(400, "history must be a list of {role, content}")
+
+    with data_lock:
+        notes = load_json(NOTES_FILE, [])
+
+    try:
+        result = ai_chat(load_config(), notes, question, history)
+    except AIError as e:
+        return self.send_json({"detail": str(e)}, 502)
+    self.send_json(result)
 
 
 # ── 入口 ─────────────────────────────────────────────────────────

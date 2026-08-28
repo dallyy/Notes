@@ -4,6 +4,7 @@ import { initGraph, closeGraph } from "./graph.js";
 import { initSettings, loadSettings, closeSettings } from "./settings.js";
 import { initAutocomplete } from "./autocomplete.js";
 import { initEffects } from "./effects.js";
+import { initChat } from "./chat.js";
 
 loadFolderState();
 initEffects();
@@ -12,6 +13,7 @@ initAutocomplete();
 initEditor();
 initSettings();
 initGraph();
+initChat();
 loadNotes();
 loadSettings();
 

@@ -13,6 +13,7 @@ python3 server.py # 仅启动后端（不打开浏览器）
 
 ```
 ├── server.py            # 后端（单文件，Python 标准库，零第三方依赖）
+├── ai.py                # AI 检索增强：标题嵌入 + K-D 树 + 图谱连通块 + 思考链对话
 ├── run.sh               # 启动脚本（自动打开浏览器）
 ├── templates/index.html # 唯一 HTML 壳（单页）
 ├── static/
@@ -24,7 +25,10 @@ python3 server.py # 仅启动后端（不打开浏览器）
 ├── data/
 │   ├── notes.json       # 笔记数据（运行时生成，被 .gitignore 忽略）
 │   ├── settings.json    # 服务器侧外观设置（同上）
-│   └── folders.json     # 服务器侧文件夹状态（同上）
+│   ├── folders.json     # 服务器侧文件夹状态（同上）
+│   ├── ai_config.json   # AI 配置（api_key/model，被 .gitignore 忽略）
+│   ├── embeddings.json  # 标题嵌入向量缓存（同上）
+│   └── chat_context.json# 最近一次检索生成的上下文文档（同上）
 └── uploads/             # 背景图片（同上）
 ```
 
@@ -66,6 +70,7 @@ server.py（Python 标准库 http.server）
 | POST | `/api/upload-background` | 上传背景图（魔数校验，≤20MiB） |
 | DELETE | `/api/background` | 移除背景图 |
 | GET / PUT | `/api/folders` | 读 / 更新文件夹列表与笔记-文件夹归属 |
+| POST | `/api/chat` | AI 对话：嵌入检索 + 图谱连通块 + 思考链回答 |
 
 ### 数据模型
 
@@ -100,6 +105,27 @@ server.py（Python 标准库 http.server）
 - 全局 payload 上限 20MiB（`MAX_BODY`）。
 - 扩展名**由文件魔数决定**（JPEG/PNG/GIF/WebP），客户端文件名从不被信任或复用；落盘名恒为 `bg_<uuid><ext>`，杜绝路径穿越与扩展名伪造。
 - 服务仅绑定 `127.0.0.1`，无鉴权设计即以此为本机边界；如需局域网访问请自行加认证层。
+
+## AI 对话（嵌入检索 + 图谱连通块 + 思考链）
+
+- **模型**：标题/查询嵌入 `qwen3.7-text-embedding`；对话 `deepseek-v4-pro-0813`（DashScope OpenAI 兼容模式，`enable_thinking: true` 开启思考链）。
+- **检索链路**：把问题经 embedding 模型算成向量 → 在笔记标题向量的 **K-D 树**上查最近邻 → 找到命中标题所在知识图谱**连通块**的全部标题 → 按标题匹配 `notes.json` 中对应正文 → 将「问题 + 各标题与正文」写成 `data/chat_context.json` 上下文文档 → 交给对话模型回答。
+- **配置**：创建 `data/ai_config.json`（已被 .gitignore 忽略，不会提交到 git）：
+
+```json
+{
+  "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  "api_key": "sk-...",
+  "embedding_model": "qwen3.7-text-embedding",
+  "chat_model": "deepseek-v4-pro-0813",
+  "enable_thinking": true,
+  "timeout": 120,
+  "top_k": 1
+}
+```
+
+  也支持环境变量 `DASHSCOPE_BASE_URL` / `DASHSCOPE_API_KEY` / `EMBEDDING_MODEL` / `CHAT_MODEL` 临时覆盖。
+- 标题嵌入向量缓存在 `data/embeddings.json`：只有新增笔记或标题变化时才重新调用 embedding 接口。
 
 ## 运行要求
 
