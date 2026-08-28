@@ -37,6 +37,7 @@ func main() {
 		Notes:    NewJSONNoteStore(baseDir),
 		Settings: NewJSONSettingsStore(baseDir),
 		Folders:  NewJSONFolderStore(baseDir),
+		Sessions: NewJSONChatSessionStore(baseDir),
 		Asker:    asker,
 	}
 	srv := NewServer(deps)

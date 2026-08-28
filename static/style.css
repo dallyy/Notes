@@ -1409,43 +1409,133 @@ input[type="file"]::file-selector-button {
   scrollbar-color: color-mix(in srgb, var(--t-400) 25%, transparent) transparent;
 }
 
-/* ── 21. AI Chat Page（独立 /chat 页面，复用主页主题变量）────── */
+/* ── 21. AI Chat Page（全屏布局 + 会话列表）────────────────── */
 .chat-page {
   position: relative;
   z-index: 2;
-  max-width: 800px;
-  margin: 0 auto;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  display: flex;
+  gap: 0;
+}
+
+/* 左侧会话栏 */
+.chat-sessions {
+  width: 300px;
+  min-width: 260px;
   height: 100vh;
   padding: var(--space-lg);
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: 0.75rem;
+  border-right: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  backdrop-filter: blur(16px);
+  overflow-y: auto;
 }
-
-.chat-topbar {
+.chat-sessions-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.6rem 1rem;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface) 72%, transparent);
-  backdrop-filter: blur(12px);
+  justify-content: space-between;
 }
-.chat-topbar h1 {
-  font-size: 1.05rem;
+.chat-sessions h1 {
+  font-size: 1.15rem;
   margin: 0;
   color: var(--text-primary);
   font-weight: 600;
 }
-
+.chat-new {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--t-400) 14%, transparent);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.chat-new:hover {
+  background: color-mix(in srgb, var(--t-400) 24%, transparent);
+}
+.chat-search {
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+.chat-search:focus {
+  outline: none;
+  border-color: var(--t-400);
+}
+.chat-session-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.chat-session-empty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 0.5rem;
+}
+.chat-session-item {
+  position: relative;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.chat-session-item:hover {
+  background: color-mix(in srgb, var(--t-400) 8%, transparent);
+}
+.chat-session-item.active {
+  border-color: var(--t-400);
+  background: color-mix(in srgb, var(--t-400) 14%, transparent);
+}
+.chat-session-title {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 1.2rem;
+}
+.chat-session-time {
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+.chat-session-del {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+.chat-session-del:hover {
+  color: var(--text-primary);
+}
 .chat-back {
   color: var(--t-600);
   text-decoration: none;
   font-size: 0.85rem;
-  padding: 0.3rem 0.7rem;
+  padding: 0.4rem 0.7rem;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
+  text-align: center;
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 .chat-back:hover {
@@ -1453,16 +1543,30 @@ input[type="file"]::file-selector-button {
   color: var(--text-primary);
 }
 
-.chat-card {
+/* 右侧对话区 */
+.chat-main {
   flex: 1;
-  min-height: 0;
+  min-width: 0;
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
-  backdrop-filter: blur(14px);
+}
+.chat-topbar {
+  display: flex;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  backdrop-filter: blur(12px);
+}
+.chat-topbar h2 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+  font-weight: 600;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-messages {
@@ -1534,7 +1638,8 @@ input[type="file"]::file-selector-button {
 }
 
 @media (max-width: 768px) {
-  .chat-page {
-    padding: var(--space-md);
+  .chat-sessions {
+    width: 240px;
+    min-width: 200px;
   }
 }

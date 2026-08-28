@@ -32,19 +32,28 @@
     <div class="cursor-layer" id="cursorLayer"></div>
 
     <div class="chat-page">
-        <header class="chat-topbar border-glow">
+        <aside class="chat-sessions border-glow">
+            <div class="chat-sessions-header">
+                <h1>AI 对话</h1>
+                <button class="chat-new" id="chatNew" type="button">+ 新对话</button>
+            </div>
+            <input class="chat-search" id="chatSearch" type="text"
+                   placeholder="搜索会话..." autocomplete="off" />
+            <div class="chat-session-list" id="chatSessionList"></div>
             <a class="chat-back" href="/">← 返回笔记</a>
-            <h1>AI 对话</h1>
-        </header>
+        </aside>
 
-        <div class="chat-card border-glow">
+        <main class="chat-main">
+            <header class="chat-topbar border-glow">
+                <h2 id="chatTitle">新对话</h2>
+            </header>
             <div class="chat-messages" id="chatMessages"></div>
             <form class="chat-input-row" id="chatForm">
                 <input class="chat-input" id="chatInput" type="text"
                        placeholder="问点什么，例如：今天是几号" autocomplete="off" />
                 <button class="chat-send" type="submit">发送</button>
             </form>
-        </div>
+        </main>
     </div>
 
     <div class="toast-container" id="toastContainer"></div>

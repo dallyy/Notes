@@ -244,11 +244,62 @@ func (s *Server) handleDeleteBackground(w http.ResponseWriter, _ *http.Request) 
 	return nil
 }
 
-// ── AI 对话 ─────────────────────────────────────────────────────
+// ── AI 会话持久化 ─────────────────────────────────────────────
 
 type chatBody struct {
-	Question string        `json:"question"`
-	History  []ChatMessage `json:"history"`
+	SessionID string `json:"session_id"`
+	Question  string `json:"question"`
+}
+
+func (s *Server) handleListSessions(w http.ResponseWriter, r *http.Request) error {
+	sessions, _ := s.sessions.LoadSessions()
+	sessions = filterSessions(sessions, r.URL.Query().Get("q"))
+	sortSessions(sessions)
+	writeJSON(w, http.StatusOK, sessions)
+	return nil
+}
+
+func (s *Server) handleCreateSession(w http.ResponseWriter, _ *http.Request) error {
+	sessions, _ := s.sessions.LoadSessions()
+	now := nowISO()
+	session := ChatSession{ID: uuidHex(), Title: "新对话", Messages: []ChatMessage{}, CreatedAt: now, UpdatedAt: now}
+	sessions = append(sessions, session)
+	if err := s.sessions.SaveSessions(sessions); err != nil {
+		return httpError(http.StatusInternalServerError, "Failed to persist sessions")
+	}
+	writeJSON(w, http.StatusOK, session)
+	return nil
+}
+
+func (s *Server) handleGetSession(w http.ResponseWriter, r *http.Request) error {
+	id := r.PathValue("id")
+	sessions, _ := s.sessions.LoadSessions()
+	for _, s := range sessions {
+		if s.ID == id {
+			writeJSON(w, http.StatusOK, s)
+			return nil
+		}
+	}
+	return httpError(http.StatusNotFound, "Session not found")
+}
+
+func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) error {
+	id := r.PathValue("id")
+	sessions, _ := s.sessions.LoadSessions()
+	kept := sessions[:0]
+	for _, s := range sessions {
+		if s.ID != id {
+			kept = append(kept, s)
+		}
+	}
+	if len(kept) == len(sessions) {
+		return httpError(http.StatusNotFound, "Session not found")
+	}
+	if err := s.sessions.SaveSessions(kept); err != nil {
+		return httpError(http.StatusInternalServerError, "Failed to persist sessions")
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	return nil
 }
 
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) error {
@@ -256,15 +307,61 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) error {
 	if err := readJSON(r, &body); err != nil {
 		return httpError(http.StatusBadRequest, "Invalid JSON body")
 	}
-	if strings.TrimSpace(body.Question) == "" {
+	question := strings.TrimSpace(body.Question)
+	if question == "" {
 		return httpError(http.StatusBadRequest, "question must be a non-empty string")
 	}
+
+	sessions, _ := s.sessions.LoadSessions()
+	idx := -1
+	if body.SessionID != "" {
+		for i, s := range sessions {
+			if s.ID == body.SessionID {
+				idx = i
+				break
+			}
+		}
+		if idx < 0 {
+			return httpError(http.StatusNotFound, "Session not found")
+		}
+	}
+	if idx < 0 {
+		now := nowISO()
+		sessions = append(sessions, ChatSession{
+			ID: uuidHex(), Title: sessionTitle(question), Messages: []ChatMessage{},
+			CreatedAt: now, UpdatedAt: now,
+		})
+		idx = len(sessions) - 1
+	}
+	session := sessions[idx]
+
 	notes, _ := s.notes.LoadNotes()
-	ans, err := s.asker.Ask(r.Context(), notes, body.Question, body.History)
+	ans, err := s.asker.Ask(r.Context(), notes, question, session.Messages)
 	if err != nil {
 		return httpError(http.StatusBadGateway, err.Error())
 	}
-	writeJSON(w, http.StatusOK, ans)
+
+	if len(session.Messages) == 0 {
+		session.Title = sessionTitle(question)
+	}
+	session.Messages = append(session.Messages,
+		ChatMessage{Role: "user", Content: question},
+		ChatMessage{Role: "assistant", Content: ans.Answer})
+	session.UpdatedAt = nowISO()
+	sessions[idx] = session
+	if err := s.sessions.SaveSessions(sessions); err != nil {
+		return httpError(http.StatusInternalServerError, "Failed to persist sessions")
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"answer":        ans.Answer,
+		"reasoning":     ans.Reasoning,
+		"matched_title": ans.MatchedTitle,
+		"titles":        ans.Titles,
+		"context":       ans.Context,
+		"session_id":    session.ID,
+		"session_title": session.Title,
+	})
 	return nil
 }
 

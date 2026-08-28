@@ -13,3 +13,4 @@ data/chat_context.json
 data/*.tmp
 uploads/*.tmp
 .DS_Store
+data/chat_sessions.json

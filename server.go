@@ -20,6 +20,7 @@ type Server struct {
 	notes    NoteStore
 	settings SettingsStore
 	folders  FolderStore
+	sessions ChatSessionStore
 	asker    Asker
 	mu       sync.Mutex
 	mux      *http.ServeMux
@@ -31,6 +32,7 @@ type Deps struct {
 	Notes    NoteStore
 	Settings SettingsStore
 	Folders  FolderStore
+	Sessions ChatSessionStore
 	Asker    Asker
 }
 
@@ -41,6 +43,7 @@ func NewServer(deps Deps) *Server {
 		notes:    deps.Notes,
 		settings: deps.Settings,
 		folders:  deps.Folders,
+		sessions: deps.Sessions,
 		asker:    deps.Asker,
 		mux:      http.NewServeMux(),
 	}
@@ -91,6 +94,10 @@ func (s *Server) routes() {
 	s.handle("PUT /api/settings", s.handlePutSettings, s.locked)
 	s.handle("POST /api/upload-background", s.handleUploadBackground, s.locked)
 	s.handle("DELETE /api/background", s.handleDeleteBackground, s.locked)
+	s.handle("GET /api/chat/sessions", s.handleListSessions, s.locked)
+	s.handle("POST /api/chat/sessions", s.handleCreateSession, s.locked)
+	s.handle("GET /api/chat/sessions/{id}", s.handleGetSession, s.locked)
+	s.handle("DELETE /api/chat/sessions/{id}", s.handleDeleteSession, s.locked)
 	s.handle("POST /api/chat", s.handleChat) // AI 网络调用不持数据锁
 
 	// API 404 统一返回 JSON
